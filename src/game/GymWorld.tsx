@@ -1,4 +1,4 @@
-import type { StationId } from '../types'
+import type { StationId } from '../core/types'
 
 export const STATION_POS: Record<StationId, [number, number, number]> = {
   push: [-4.5, 0, -1.4],
