@@ -1,12 +1,14 @@
 import { Modal } from '../components/Modal'
 import { StatBars } from '../components/StatBars'
+import { ShareMoment } from '../components/ShareMoment'
 import { useGame, currentStats, type SessionOutcome } from '../core/store'
+import { inviteLink, playerName } from '../core/share'
 import { CHARACTERS } from '../data/characters'
 import { EXERCISES, STATIONS, STATION_ORDER } from '../data/exercises'
 import { useT } from '../i18n'
 
 export function LevelUp({ outcome, onClose }: { outcome: SessionOutcome; onClose: () => void }) {
-  const { t, L } = useT()
+  const { t } = useT()
   const game = useGame()
   const id = game.selected!
   const from = outcome.newLevel - outcome.levelsGained
@@ -16,6 +18,7 @@ export function LevelUp({ outcome, onClose }: { outcome: SessionOutcome; onClose
   const newExercises = EXERCISES.filter(
     (e) => e.unlockLevel > from && e.unlockLevel <= outcome.newLevel,
   )
+  const tons = Math.round(game.lifetime.kg / 1000)
 
   return (
     <Modal title={t('levelUpTitle')} onClose={onClose}>
@@ -28,15 +31,31 @@ export function LevelUp({ outcome, onClose }: { outcome: SessionOutcome; onClose
             <li key={c}>⭐ {t('newUnlock', { name: CHARACTERS[c].name })}</li>
           ))}
           {newStations.map((s) => (
-            <li key={s}>🏋️ {t('newStation', { name: L(STATIONS[s].title) })}</li>
+            <li key={s}>🏋️ {t('newStation', { name: STATIONS[s].title })}</li>
           ))}
           {newExercises.map((e) => (
-            <li key={e.id}>➕ {L(e.name)}</li>
+            <li key={e.id}>➕ {e.name}</li>
           ))}
         </ul>
-        <button type="button" className="btn btn--primary" onClick={onClose}>
-          {t('continue')}
-        </button>
+        <div className="share-row">
+          <ShareMoment
+            origin="level"
+            label={t('shareLevel')}
+            card={{
+              kicker: t('levelCardKicker'),
+              title: CHARACTERS[id].name,
+              big: `${outcome.newLevel}`,
+              unit: t('levelCardUnit'),
+              detail: tons > 0 ? t('levelCardDetail', { tons }) : undefined,
+              cta: t('cardCtaPlay'),
+            }}
+            text={t('levelShareText', { lvl: outcome.newLevel })}
+            link={() => inviteLink(playerName())}
+          />
+          <button type="button" className="btn btn--primary" onClick={onClose}>
+            {t('continue')}
+          </button>
+        </div>
       </div>
     </Modal>
   )

@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:crazygames": "tsc -b && vite build --mode crazygames --outDir dist-crazygames",
+    "build:gd": "tsc -b && vite build --mode gamedistribution --outDir dist-gamedistribution",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",
+    "@vercel/og": "^0.8.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "three": "^0.185.1",

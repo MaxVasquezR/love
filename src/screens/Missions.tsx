@@ -2,14 +2,38 @@ import { useState } from 'react'
 import { Modal } from '../components/Modal'
 import { useGame } from '../core/store'
 import { achievementValue } from '../core/selectors'
-import { ACHIEVEMENTS } from '../data/achievements'
+import { sfx } from '../core/audio'
+import { ACHIEVEMENTS, type AchievementDef } from '../data/achievements'
 import { missionText } from '../data/missions'
-import { useT } from '../i18n'
+import { AdService } from '../ads/AdService'
+import { ShareMoment } from '../components/ShareMoment'
+import { inviteLink, playerName } from '../core/share'
+import { fmtNum, useT } from '../i18n'
 
-export function Missions({ onClose }: { onClose: () => void }) {
-  const { t, L, lang } = useT()
+/** Achievements worth this many lucas or more offer a share card when claimed. */
+const SHARE_ACHIEVEMENT_REWARD = 300
+
+export function Missions({ onClose, onQuiz }: { onClose: () => void; onQuiz: () => void }) {
+  const { t } = useT()
   const game = useGame()
   const [tab, setTab] = useState<'daily' | 'ach'>('daily')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [justAch, setJustAch] = useState<AchievementDef | null>(null)
+
+  const claim = (run: () => void) => {
+    run()
+    sfx.coin()
+  }
+
+  const reroll = async (id: string) => {
+    if (busy) return
+    setBusy(true)
+    const ok = await AdService.rewarded('mission_reroll')
+    setBusy(false)
+    if (ok) game.rerollMission(id)
+    else setMsg(t('adNotAvailable'))
+  }
 
   return (
     <Modal title={t('missions')} onClose={onClose} wide>
@@ -29,37 +53,73 @@ export function Missions({ onClose }: { onClose: () => void }) {
             return (
               <div key={m.id} className={`shop-item ${m.claimed ? 'own' : ''}`}>
                 <div className="grow">
-                  <b>{missionText(m, lang)}</b>
+                  <b>{missionText(m)}</b>
                   <Progress value={m.progress} target={m.target} />
                 </div>
-                {m.claimed ? (
-                  <span className="tag">{t('claimed')}</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn--gold btn--sm"
-                    disabled={!ready}
-                    onClick={() => game.claimMission(m.id)}
-                  >
-                    {t('claim')} <i className="coin" /> {m.reward}
-                  </button>
-                )}
+                <div className="shop-item__actions">
+                  {m.claimed ? (
+                    <span className="tag">{t('claimed')}</span>
+                  ) : (
+                    <>
+                      {!ready && AdService.canShowRewarded() && (
+                        <button type="button" className="btn btn--ad btn--sm" disabled={busy} onClick={() => reroll(m.id)}>
+                          ▶ {t('reroll')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn--gold btn--sm"
+                        disabled={!ready}
+                        onClick={() => claim(() => game.claimMission(m.id))}
+                      >
+                        {t('claim')} <i className="coin" /> {m.reward}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             )
           })}
+          <button type="button" className="btn btn--ghost" onClick={onQuiz}>
+            🧠 {t('quizDaily')}
+          </button>
+          {msg && <p className="hint center warn">{msg}</p>}
           <p className="hint center">{t('resetIn')}</p>
         </div>
       )}
 
       {tab === 'ach' && (
         <div className="shop-list">
+          {justAch && (
+            <div className="shop-item own">
+              <div className="grow">
+                <b>{t('achievementJust', { name: justAch.name, coins: justAch.reward })}</b>
+              </div>
+              <div className="shop-item__actions">
+                <ShareMoment
+                  origin="achievement"
+                  className="btn btn--wsp btn--sm"
+                  label={t('shareAchievement')}
+                  card={{
+                    kicker: t('achievementCardKicker'),
+                    title: justAch.name,
+                    big: '🏆',
+                    unit: t('achievementCardUnit'),
+                    cta: t('cardCtaPlay'),
+                  }}
+                  text={t('achievementShareText', { name: justAch.name })}
+                  link={() => inviteLink(playerName())}
+                />
+              </div>
+            </div>
+          )}
           {ACHIEVEMENTS.map((a) => {
             const done = game.achievements.includes(a.id)
             const value = achievementValue(game, a.id)
             return (
               <div key={a.id} className={`shop-item ${done ? 'own' : ''}`}>
                 <div className="grow">
-                  <b>🏆 {L(a.name)}</b>
+                  <b>🏆 {a.name}</b>
                   <Progress value={value} target={a.target} />
                 </div>
                 {done ? (
@@ -69,7 +129,12 @@ export function Missions({ onClose }: { onClose: () => void }) {
                     type="button"
                     className="btn btn--gold btn--sm"
                     disabled={value < a.target}
-                    onClick={() => game.claimAchievement(a.id)}
+                    onClick={() =>
+                      claim(() => {
+                        game.claimAchievement(a.id)
+                        if (a.reward >= SHARE_ACHIEVEMENT_REWARD) setJustAch(a)
+                      })
+                    }
                   >
                     <i className="coin" /> {a.reward}
                   </button>
@@ -91,7 +156,7 @@ function Progress({ value, target }: { value: number; target: number }) {
         <div style={{ width: `${(v / target) * 100}%` }} />
       </div>
       <small>
-        {Math.floor(v).toLocaleString()}/{target.toLocaleString()}
+        {fmtNum(Math.floor(v))}/{fmtNum(target)}
       </small>
     </div>
   )

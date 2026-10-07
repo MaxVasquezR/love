@@ -2,9 +2,11 @@ import type { AdProvider } from './types'
 import { noneProvider } from './providers/none'
 import { crazyGamesProvider } from './providers/crazygames'
 import { googleProvider } from './providers/google'
+import { gameDistributionProvider } from './providers/gamedistribution'
 import { useAdState } from './adState'
 import { useGame } from '../core/store'
 import { MIDGAME_COOLDOWN_MS } from '../core/economy'
+import { track } from '../core/analytics'
 
 function pickProvider(): AdProvider {
   switch (import.meta.env.VITE_AD_PROVIDER) {
@@ -12,6 +14,8 @@ function pickProvider(): AdProvider {
       return crazyGamesProvider
     case 'google':
       return googleProvider
+    case 'gamedistribution':
+      return gameDistributionProvider
     default:
       return noneProvider
   }
@@ -42,6 +46,7 @@ export const AdService = {
     if (!provider.canShowRewarded()) return false
     const ok = await withPause(() => provider.rewarded(placement))
     if (ok) useGame.getState().noteAdWatched()
+    track('ad_rewarded', { placement, ok })
     return ok
   },
 
@@ -50,6 +55,7 @@ export const AdService = {
     const last = useGame.getState().lastMidgame
     if (Date.now() - last < MIDGAME_COOLDOWN_MS) return
     useGame.getState().noteMidgame()
+    track('ad_midgame', { placement })
     await withPause(() => provider.midgame(placement))
   },
 

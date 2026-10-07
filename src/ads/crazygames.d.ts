@@ -27,6 +27,9 @@ interface CrazySDK {
     setItem(key: string, value: string): void
     removeItem(key: string): void
   }
+  user?: {
+    systemInfo?: { locale?: string; countryCode?: string }
+  }
 }
 
 interface AdBreakParams {

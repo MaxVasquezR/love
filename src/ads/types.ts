@@ -1,5 +1,5 @@
 export interface AdProvider {
-  readonly name: 'none' | 'crazygames' | 'google'
+  readonly name: 'none' | 'crazygames' | 'google' | 'gamedistribution'
   init(): Promise<void>
   canShowRewarded(): boolean
   /** Resolves true only when the player watched the full ad and earned the reward. */

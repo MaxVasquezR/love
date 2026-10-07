@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ActorId } from '../game/GameCanvas'
+import { speak } from './audio'
 
 interface Line {
   text: string
@@ -22,6 +23,7 @@ export const useTalk = create<TalkState>()((set) => ({
     const id = ++seq
     window.clearTimeout(timers[actor])
     set((s) => ({ lines: { ...s.lines, [actor]: { text, id } } }))
+    if (actor === 'coach') speak(text)
     timers[actor] = window.setTimeout(() => {
       set((s) => (s.lines[actor]?.id === id ? { lines: { ...s.lines, [actor]: undefined } } : s))
     }, ms)

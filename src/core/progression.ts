@@ -57,6 +57,12 @@ export function suggestedKg(ex: Exercise, stats: Stats): number {
   return clampKg(ex, stepped)
 }
 
+/** Suggested working weight for a training goal (`load` = share of capacity, see GOALS). */
+export function suggestedKgFor(ex: Exercise, stats: Stats, load: number): number {
+  const raw = Math.min(ex.maxKg, capacityKg(ex, stats) * load)
+  return clampKg(ex, Math.round(raw / ex.step) * ex.step)
+}
+
 export function clampKg(ex: Exercise, kg: number): number {
   return Math.min(ex.maxKg, Math.max(ex.minKg, Number(kg.toFixed(1))))
 }

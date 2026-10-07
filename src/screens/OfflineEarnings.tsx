@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { Modal } from '../components/Modal'
 import { useGame } from '../core/store'
+import { isSunday } from '../core/economy'
+import { sfx } from '../core/audio'
 import { CHARACTERS } from '../data/characters'
 import { AdService } from '../ads/AdService'
 import { useT } from '../i18n'
 
+/** `coins` already includes the Sunday x2 bonus. */
 export function OfflineEarnings({ coins, onClose }: { coins: number; onClose: () => void }) {
   const { t } = useT()
   const game = useGame()
@@ -13,6 +16,7 @@ export function OfflineEarnings({ coins, onClose }: { coins: number; onClose: ()
 
   const take = (amount: number) => {
     game.addCoins(amount)
+    sfx.coin()
     onClose()
   }
 
@@ -27,6 +31,7 @@ export function OfflineEarnings({ coins, onClose }: { coins: number; onClose: ()
   return (
     <Modal title={t('offlineTitle')}>
       <div className="center">
+        {isSunday() && <p className="banner">😴 {t('offlineSunday')}</p>}
         <p>{t('offlineBody', { name, coins })}</p>
         <p className="big-coins">
           <i className="coin" /> {coins}

@@ -1,4 +1,4 @@
-import type { Lifetime, Localized } from '../core/types'
+import type { Lifetime } from '../core/types'
 
 export interface AchievementContext {
   lifetime: Lifetime
@@ -8,26 +8,31 @@ export interface AchievementContext {
 
 export interface AchievementDef {
   id: string
-  name: Localized
+  name: string
   target: number
   reward: number
   value: (c: AchievementContext) => number
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
-  { id: 'first', name: { es: 'Primer día', en: 'Day one' }, target: 1, reward: 50, value: (c) => c.lifetime.sessions },
-  { id: 'sessions-25', name: { es: 'Habitual del gym', en: 'Gym regular' }, target: 25, reward: 250, value: (c) => c.lifetime.sessions },
-  { id: 'sessions-100', name: { es: 'Vive en el gym', en: 'Lives at the gym' }, target: 100, reward: 800, value: (c) => c.lifetime.sessions },
-  { id: 'reps-100', name: { es: '100 reps', en: '100 reps' }, target: 100, reward: 100, value: (c) => c.lifetime.reps },
-  { id: 'reps-1000', name: { es: 'Mil repeticiones', en: 'A thousand reps' }, target: 1000, reward: 600, value: (c) => c.lifetime.reps },
-  { id: 'perfect-50', name: { es: 'Técnica limpia', en: 'Clean technique' }, target: 50, reward: 200, value: (c) => c.lifetime.perfectReps },
-  { id: 'perfect-300', name: { es: 'Maestro de la forma', en: 'Form master' }, target: 300, reward: 700, value: (c) => c.lifetime.perfectReps },
-  { id: 'kg-10k', name: { es: '10 toneladas', en: '10 tonnes' }, target: 10000, reward: 200, value: (c) => c.lifetime.kg },
-  { id: 'kg-100k', name: { es: '100 toneladas', en: '100 tonnes' }, target: 100000, reward: 1000, value: (c) => c.lifetime.kg },
-  { id: 'combo-8', name: { es: 'Combo imparable', en: 'Unstoppable combo' }, target: 8, reward: 250, value: (c) => c.lifetime.bestCombo },
-  { id: 'level-5', name: { es: 'Nivel 5', en: 'Level 5' }, target: 5, reward: 150, value: (c) => c.bestLevel },
-  { id: 'level-10', name: { es: 'Nivel 10', en: 'Level 10' }, target: 10, reward: 400, value: (c) => c.bestLevel },
-  { id: 'level-25', name: { es: 'Nivel 25', en: 'Level 25' }, target: 25, reward: 1500, value: (c) => c.bestLevel },
-  { id: 'streak-7', name: { es: 'Semana completa', en: 'Full week' }, target: 7, reward: 500, value: (c) => c.lifetime.bestStreak },
-  { id: 'roster', name: { es: 'Equipo completo', en: 'Full roster' }, target: 4, reward: 1000, value: (c) => c.unlockedCount },
+  { id: 'first', name: 'Primer día en Bonnetty', target: 1, reward: 50, value: (c) => c.lifetime.sessions },
+  { id: 'sessions-25', name: 'Cliente frecuente', target: 25, reward: 250, value: (c) => c.lifetime.sessions },
+  { id: 'sessions-100', name: 'Vive en el gym', target: 100, reward: 800, value: (c) => c.lifetime.sessions },
+  { id: 'reps-100', name: '100 reps', target: 100, reward: 100, value: (c) => c.lifetime.reps },
+  { id: 'reps-1000', name: 'Mil repeticiones', target: 1000, reward: 600, value: (c) => c.lifetime.reps },
+  { id: 'perfect-50', name: 'Técnica limpia', target: 50, reward: 200, value: (c) => c.lifetime.perfectReps },
+  { id: 'perfect-300', name: 'Maestro de la forma', target: 300, reward: 700, value: (c) => c.lifetime.perfectReps },
+  { id: 'kg-10k', name: '10 toneladas movidas', target: 10000, reward: 200, value: (c) => c.lifetime.kg },
+  { id: 'kg-100k', name: '100 toneladas movidas', target: 100000, reward: 1000, value: (c) => c.lifetime.kg },
+  { id: 'combo-8', name: 'Combo imparable', target: 8, reward: 250, value: (c) => c.lifetime.bestCombo },
+  { id: 'pr-1', name: 'Primer PR', target: 1, reward: 100, value: (c) => c.lifetime.prs },
+  { id: 'pr-20', name: 'Rompe-récords', target: 20, reward: 600, value: (c) => c.lifetime.prs },
+  { id: 'quiz-10', name: 'Alumno de la Profe', target: 10, reward: 300, value: (c) => c.lifetime.quizRight },
+  { id: 'routine-5', name: 'Disciplina de rutina', target: 5, reward: 400, value: (c) => c.lifetime.routines },
+  { id: 'share-1', name: 'Influencer fitness', target: 1, reward: 150, value: (c) => c.lifetime.shares },
+  { id: 'level-5', name: 'Nivel 5', target: 5, reward: 150, value: (c) => c.bestLevel },
+  { id: 'level-10', name: 'Nivel 10', target: 10, reward: 400, value: (c) => c.bestLevel },
+  { id: 'level-25', name: 'Nivel 25', target: 25, reward: 1500, value: (c) => c.bestLevel },
+  { id: 'streak-7', name: 'Semana completa', target: 7, reward: 500, value: (c) => c.lifetime.bestStreak },
+  { id: 'roster', name: 'Equipo completo', target: 5, reward: 1200, value: (c) => c.unlockedCount },
 ]

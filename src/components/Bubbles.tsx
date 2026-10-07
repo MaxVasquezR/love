@@ -1,5 +1,6 @@
 import { useTalk } from '../core/talk'
 import { COACH_NAME } from '../data/characters'
+import { L } from '../i18n'
 import type { ActorId, BubbleAnchors } from '../game/GameCanvas'
 
 type Props = { anchors: BubbleAnchors; playerName: string }
@@ -19,7 +20,7 @@ export function Bubbles({ anchors, playerName }: Props) {
         >
           {lines[id] && (
             <div key={lines[id]!.id} className={`speech speech--${id}`}>
-              <strong>{id === 'coach' ? COACH_NAME : playerName}</strong>
+              <strong>{id === 'coach' ? L(COACH_NAME, 'Coach Maribel') : playerName}</strong>
               <span>{lines[id]!.text}</span>
             </div>
           )}

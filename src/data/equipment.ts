@@ -1,9 +1,9 @@
-import type { EquipmentId, Localized, Stats } from '../core/types'
+import type { EquipmentId, Stats } from '../core/types'
 
 export interface EquipmentDef {
   id: EquipmentId
-  name: Localized
-  blurb: Localized
+  name: string
+  blurb: string
   price: number
   level: number
   bonus: Partial<Stats>
@@ -12,40 +12,40 @@ export interface EquipmentDef {
 export const EQUIPMENT: Record<EquipmentId, EquipmentDef> = {
   chalk: {
     id: 'chalk',
-    name: { es: 'Magnesio', en: 'Chalk' },
-    blurb: { es: 'Agarre firme, cero resbalones.', en: 'Solid grip, zero slips.' },
+    name: 'Magnesio',
+    blurb: 'Agarre firme, cero resbalones con el sudor.',
     price: 300,
     level: 2,
     bonus: { tec: 2, str: 1 },
   },
   belt: {
     id: 'belt',
-    name: { es: 'Cinturón', en: 'Lifting belt' },
-    blurb: { es: 'Core blindado para cargas pesadas.', en: 'Armored core for heavy loads.' },
+    name: 'Cinturón de cuero',
+    blurb: 'Core blindado para las cargas pesadas.',
     price: 450,
     level: 3,
     bonus: { str: 3 },
   },
   knees: {
     id: 'knees',
-    name: { es: 'Rodilleras', en: 'Knee sleeves' },
-    blurb: { es: 'Rodillas calientes, series más largas.', en: 'Warm knees, longer sets.' },
+    name: 'Rodilleras',
+    blurb: 'Rodillas calientes, series más largas.',
     price: 550,
     level: 4,
     bonus: { end: 3 },
   },
   straps: {
     id: 'straps',
-    name: { es: 'Straps', en: 'Wrist straps' },
-    blurb: { es: 'Jalones sin que el agarre falle.', en: 'Pulls without grip failure.' },
+    name: 'Straps',
+    blurb: 'Jalones pesados sin que falle el agarre.',
     price: 700,
     level: 6,
     bonus: { str: 2, tec: 2 },
   },
   shoes: {
     id: 'shoes',
-    name: { es: 'Zapatillas de halterofilia', en: 'Lifting shoes' },
-    blurb: { es: 'Base estable, técnica de élite.', en: 'Stable base, elite technique.' },
+    name: 'Zapatillas de halterofilia',
+    blurb: 'Base estable, técnica de élite.',
     price: 900,
     level: 8,
     bonus: { tec: 3, end: 1 },

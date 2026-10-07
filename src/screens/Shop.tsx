@@ -1,52 +1,110 @@
 import { useState } from 'react'
 import { Modal } from '../components/Modal'
-import { useGame, activeSkin, bestLevel } from '../core/store'
+import { useGame, activeOutfit, bestLevel } from '../core/store'
 import { useTalk } from '../core/talk'
-import { CHARACTERS, CHARACTER_ORDER, SKINS, SKIN_ORDER, skinKey } from '../data/characters'
+import { sfx } from '../core/audio'
+import { CHARACTERS, CHARACTER_ORDER, OUTFITS, OUTFIT_ORDER, outfitKey } from '../data/characters'
 import { EQUIPMENT, EQUIPMENT_ORDER } from '../data/equipment'
 import { coachLine } from '../data/coach'
 import { AdService } from '../ads/AdService'
+import type { OutfitId } from '../core/types'
 import { useT } from '../i18n'
 
-type Tab = 'gear' | 'skins' | 'athletes'
+type Tab = 'outfits' | 'gear' | 'athletes'
 
 export function Shop({ onClose }: { onClose: () => void }) {
-  const { t, L, lang } = useT()
+  const { t } = useT()
   const game = useGame()
   const say = useTalk((s) => s.say)
-  const [tab, setTab] = useState<Tab>('gear')
+  const [tab, setTab] = useState<Tab>('outfits')
   const [busy, setBusy] = useState(false)
   const id = game.selected!
+  const def = CHARACTERS[id]
   const best = bestLevel(game)
-  const current = activeSkin(game, id)
-  const trialOn = game.skinTrial && game.skinTrial.until > Date.now()
+  const current = activeOutfit(game, id)
+  const trialOn = !!game.outfitTrial && game.outfitTrial.until > Date.now()
 
   const bought = (ok: boolean) => {
-    if (ok) say('coach', coachLine(lang, 'shop'))
+    if (!ok) return
+    sfx.coin()
+    say('coach', coachLine('shop'))
   }
 
-  const trySkin = async () => {
+  const tryOutfit = async (o: OutfitId) => {
     if (busy) return
     setBusy(true)
-    const ok = await AdService.rewarded('skin_trial')
+    const ok = await AdService.rewarded('outfit_trial')
     setBusy(false)
-    if (ok) game.startSkinTrial(id, 'gold')
+    if (ok) game.startOutfitTrial(id, o)
+    else say('coach', t('adNotAvailable'))
   }
+
+  const tabs: [Tab, string][] = [
+    ['outfits', t('shopOutfits')],
+    ['gear', t('shopGear')],
+    ['athletes', t('shopAthletes')],
+  ]
 
   return (
     <Modal title={t('shop')} onClose={onClose} wide>
       <div className="tabs">
-        {(['gear', 'skins', 'athletes'] as Tab[]).map((k) => (
-          <button
-            key={k}
-            type="button"
-            className={tab === k ? 'on' : ''}
-            onClick={() => setTab(k)}
-          >
-            {k === 'gear' ? t('shopGear') : k === 'skins' ? t('shopSkins') : t('shopAthletes')}
+        {tabs.map(([k, label]) => (
+          <button key={k} type="button" className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+            {label}
           </button>
         ))}
       </div>
+
+      {tab === 'outfits' && (
+        <div className="shop-list">
+          {OUTFIT_ORDER.map((o) => {
+            const outfit = OUTFITS[o]
+            const own = game.outfits.includes(outfitKey(id, o))
+            const look = { ...def.look, ...outfit.apply(def.look) }
+            const inUse = current === o
+            return (
+              <div key={o} className={`shop-item ${inUse ? 'own' : ''}`}>
+                <div className="skin-swatch">
+                  <span style={{ background: look.top }} />
+                  <span style={{ background: look.bottom }} />
+                </div>
+                <div>
+                  <b>
+                    {outfit.name}
+                    {look.topPrint ? ' · BONNETTY' : ''}
+                  </b>
+                  <small>{outfit.blurb}</small>
+                </div>
+                <div className="shop-item__actions">
+                  {inUse ? (
+                    <span className="tag">{trialOn && !own ? t('trialActive') : t('equipped')}</span>
+                  ) : own ? (
+                    <button type="button" className="btn btn--sm" onClick={() => game.setOutfit(id, o)}>
+                      {t('equip')}
+                    </button>
+                  ) : (
+                    <>
+                      {outfit.price >= 700 && AdService.canShowRewarded() && (
+                        <button type="button" className="btn btn--ad btn--sm" disabled={busy} onClick={() => tryOutfit(o)}>
+                          ▶ {t('tryFree')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn--gold btn--sm"
+                        disabled={game.coins < outfit.price}
+                        onClick={() => bought(game.buyOutfit(id, o))}
+                      >
+                        <i className="coin" /> {outfit.price}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {tab === 'gear' && (
         <div className="shop-list">
@@ -57,8 +115,8 @@ export function Shop({ onClose }: { onClose: () => void }) {
             return (
               <div key={eid} className={`shop-item ${own ? 'own' : ''}`}>
                 <div>
-                  <b>{L(e.name)}</b>
-                  <small>{L(e.blurb)}</small>
+                  <b>{e.name}</b>
+                  <small>{e.blurb}</small>
                   <small className="bonus">
                     {Object.entries(e.bonus)
                       .map(([k, v]) => `+${v} ${t(k === 'str' ? 'statStr' : k === 'end' ? 'statEnd' : 'statTec')}`)
@@ -85,53 +143,6 @@ export function Shop({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {tab === 'skins' && (
-        <div className="shop-list">
-          {SKIN_ORDER.map((sid) => {
-            const own = game.skins.includes(skinKey(id, sid))
-            const colors = CHARACTERS[id].skins[sid]
-            const inUse = current === sid
-            return (
-              <div key={sid} className={`shop-item ${inUse ? 'own' : ''}`}>
-                <div className="skin-swatch">
-                  <span style={{ background: colors.top }} />
-                  <span style={{ background: colors.pants }} />
-                </div>
-                <div>
-                  <b>{L(SKINS[sid].name)}</b>
-                  <small>{CHARACTERS[id].name}</small>
-                </div>
-                <div className="shop-item__actions">
-                  {inUse ? (
-                    <span className="tag">{trialOn && !own ? t('trialActive') : t('equipped')}</span>
-                  ) : own ? (
-                    <button type="button" className="btn btn--sm" onClick={() => game.setSkin(id, sid)}>
-                      {t('equip')}
-                    </button>
-                  ) : (
-                    <>
-                      {sid === 'gold' && AdService.canShowRewarded() && (
-                        <button type="button" className="btn btn--ad btn--sm" disabled={busy} onClick={trySkin}>
-                          ▶ {t('tryFree')}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn--gold btn--sm"
-                        disabled={game.coins < SKINS[sid].price}
-                        onClick={() => bought(game.buySkin(id, sid))}
-                      >
-                        <i className="coin" /> {SKINS[sid].price}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
       {tab === 'athletes' && (
         <div className="shop-list">
           {CHARACTER_ORDER.map((cid) => {
@@ -145,9 +156,9 @@ export function Shop({ onClose }: { onClose: () => void }) {
                 </div>
                 <div>
                   <b>
-                    {c.name} · {L(c.title)}
+                    {c.name} · {c.title}
                   </b>
-                  <small>{L(c.bio)}</small>
+                  <small>{c.bio}</small>
                 </div>
                 <div className="shop-item__actions">
                   {own ? (
@@ -177,6 +188,7 @@ export function Shop({ onClose }: { onClose: () => void }) {
           })}
         </div>
       )}
+      {game.coins < 250 && <p className="hint center">{t('notEnough')}</p>}
     </Modal>
   )
 }

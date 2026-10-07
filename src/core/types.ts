@@ -1,28 +1,64 @@
-export type Lang = 'es' | 'en'
-export type Localized = Record<Lang, string>
-
 export type StationId = 'push' | 'pull' | 'legs'
-export type CharacterId = 'max' | 'ana' | 'leo' | 'sofi'
-export type SkinId = 'classic' | 'street' | 'night' | 'gold'
+export type RigId = 'bench' | 'adjustable' | 'dumbbells' | 'platform' | 'cable' | 'rack' | 'legpress' | 'tower'
+export type MuscleGroup =
+  | 'chest'
+  | 'shoulders'
+  | 'biceps'
+  | 'triceps'
+  | 'forearms'
+  | 'back'
+  | 'abs'
+  | 'glutes'
+  | 'quads'
+  | 'hamstrings'
+  | 'calves'
+export type CharacterId = 'max' | 'ana' | 'bruno' | 'kiara' | 'lucho'
+export type OutfitId = 'base' | 'bonnetty' | 'stringer' | 'neon' | 'hoodie' | 'oro'
 export type EquipmentId = 'chalk' | 'belt' | 'knees' | 'straps' | 'shoes'
 export type StatKey = 'str' | 'end' | 'tec'
 export type Stats = Record<StatKey, number>
+export type Goal = 'fuerza' | 'hipertrofia' | 'resistencia'
 
-export type Pose = 'idle' | 'walk' | 'lift' | 'cheer' | 'wave' | 'clap' | 'point'
+export type Pose =
+  | 'idle'
+  | 'walk'
+  | 'lift'
+  | 'cheer'
+  | 'wave'
+  | 'clap'
+  | 'point'
+  | 'cross'
+  | 'fist'
+  | 'facepalm'
+  | 'flex'
+  | 'rest'
 export type RepQuality = 'perfect' | 'good' | 'miss'
 
-export type HairStyle = 'short' | 'long' | 'ponytail' | 'buzz' | 'bun'
+export type Build = 'male' | 'female'
+export type HairStyle = 'short' | 'long' | 'ponytail' | 'buzz' | 'bun' | 'bald'
+export type TopStyle = 'tank' | 'stringer' | 'tee' | 'bra' | 'hoodie'
+export type BottomStyle = 'shorts' | 'joggers' | 'leggings'
 
 export interface CharacterLook {
+  build: Build
   skin: string
   hair: string
   hairStyle: HairStyle
   top: string
-  pants: string
+  topStyle: TopStyle
+  /** Prints the BONNETTY logo on the chest. */
+  topPrint?: boolean
+  bottom: string
+  bottomStyle: BottomStyle
   shoes: string
-  scale: number
-  bulk: number
+  shoeStripe: string
+  socks: string
+  /** Overall height multiplier (1 = 1.8 m). */
+  height: number
+  /** 0 = flaco, 1 = mamado. Grows with level. */
+  muscle: number
   beard?: string
+  mustache?: string
   cap?: string
   scrunchie?: string
   watch?: boolean
@@ -31,25 +67,32 @@ export interface CharacterLook {
   belt?: boolean
   kneeSleeves?: boolean
   wristStraps?: boolean
+  gloves?: boolean
 }
 
 export interface Exercise {
   id: string
   station: StationId
-  name: Localized
-  blurb: Localized
+  /** Machine or zone of the gym where it is done. */
+  rig: RigId
+  /** Muscles the Profe lights up in the technique demo. */
+  groups: MuscleGroup[]
+  name: string
+  blurb: string
+  muscles: string
+  cues: string[]
+  mistakes: string[]
   minKg: number
   maxKg: number
   step: number
   baseKg: number
-  reps: number
   unlockLevel: number
 }
 
 export interface Station {
   id: StationId
-  title: Localized
-  muscles: Localized
+  title: string
+  muscles: string
   unlockLevel: number
 }
 
@@ -63,20 +106,31 @@ export interface MissionState {
   claimed: boolean
 }
 
-export type MissionTemplateId = 'reps' | 'perfect' | 'station' | 'kg' | 'sessions' | 'combo'
+export type MissionTemplateId =
+  | 'reps'
+  | 'perfect'
+  | 'station'
+  | 'kg'
+  | 'sessions'
+  | 'combo'
+  | 'quiz'
+  | 'routine'
+  | 'pr'
 
 export interface SessionResult {
   characterId: CharacterId
   station: StationId
   exerciseId: string
   weight: number
-  reps: number
+  sets: number
   goodReps: number
   perfectReps: number
   maxCombo: number
   xp: number
   coins: number
   failed: boolean
+  newPr: boolean
+  routine?: boolean
 }
 
 export interface Lifetime {
@@ -88,4 +142,16 @@ export interface Lifetime {
   bestCombo: number
   bestStreak: number
   adsWatched: number
+  prs: number
+  quizRight: number
+  routines: number
+  shares: number
+}
+
+export interface Challenge {
+  exerciseId: string
+  kg: number
+  from: string
+  /** A rematch: the friend beat your challenge and sent it back heavier. */
+  rev?: boolean
 }
