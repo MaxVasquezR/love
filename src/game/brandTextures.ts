@@ -50,6 +50,51 @@ export function printTexture() {
   return print
 }
 
+let vzla: THREE.CanvasTexture | null = null
+
+function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5
+    const rr = i % 2 ? r * 0.45 : r
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr)
+  }
+  ctx.closePath()
+  ctx.fill()
+}
+
+/** Vinotinto chest print (Profe Maribel): the flag's arc of 8 stars, VENEZUELA and a tricolor stripe. */
+export function vzlaPrintTexture() {
+  if (vzla) return vzla
+  const c = canvas(256, 128)
+  const draw = () => {
+    const ctx = c.getContext('2d')!
+    ctx.clearRect(0, 0, c.width, c.height)
+    ctx.fillStyle = '#ffffff'
+    for (let i = 0; i < 8; i++) {
+      const a = Math.PI * (1.15 + (i / 7) * 0.7)
+      star(ctx, 128 + Math.cos(a) * 70, 62 + Math.sin(a) * 42, 7)
+    }
+    ctx.font = '900 34px "Bricolage Grotesque", "Arial Black", sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('VENEZUELA', 128, 72)
+    const stripes = ['#f4c430', '#1f4fa3', '#cf142b']
+    stripes.forEach((col, i) => {
+      ctx.fillStyle = col
+      ctx.fillRect(46, 98 + i * 7, 164, 6)
+    })
+  }
+  draw()
+  vzla = new THREE.CanvasTexture(c)
+  vzla.colorSpace = THREE.SRGBColorSpace
+  document.fonts?.ready.then(() => {
+    draw()
+    if (vzla) vzla.needsUpdate = true
+  })
+  return vzla
+}
+
 const labels = new Map<string, THREE.CanvasTexture>()
 
 /** Small printed label (kg numbers, machine stickers). Cached per text/colors. */

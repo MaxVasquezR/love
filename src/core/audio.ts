@@ -1,6 +1,7 @@
 import { useGame } from './store'
 import { useAdState } from '../ads/adState'
 import { getLang, type Lang } from '../i18n'
+import { CHARACTERS } from '../data/characters'
 
 let ctx: AudioContext | null = null
 
@@ -54,55 +55,64 @@ export const sfx = {
   whistle: () => tone(2100, 0.35, 'sine', 0.08, 2300),
 }
 
-const voices: Partial<Record<Lang, SpeechSynthesisVoice | null>> = {}
+type Gender = 'female' | 'male'
+export type Speaker = 'coach' | 'player'
 
-/** The Profe is Maribel: system voices only expose gender through their names. */
+const voices = new Map<string, SpeechSynthesisVoice | null>()
+
+/** System voices only expose gender through their names. */
 const FEMALE_VOICE =
   /paulina|m[oó]nica|helena|sabina|laura|elvira|dalia|camila|paloma|lupe|marisol|soledad|angelica|francisca|google espa|samantha|zira|aria|jenny|karen|victoria|susan|female|mujer/i
 const MALE_VOICE = /ra[uú]l|pablo|jorge|[aá]lvaro|diego|juan|carlos|david|mark|guy|alex|daniel|fred|male\b/i
 
-function pickVoice(lang: Lang) {
-  if (voices[lang] !== undefined) return voices[lang]
+function pickVoice(lang: Lang, gender: Gender) {
+  const key = `${lang}-${gender}`
+  if (voices.has(key)) return voices.get(key) ?? null
   const list = window.speechSynthesis?.getVoices() ?? []
   if (!list.length) return null
+  const wanted = gender === 'female' ? FEMALE_VOICE : MALE_VOICE
+  const other = gender === 'female' ? MALE_VOICE : FEMALE_VOICE
   const by = (re: RegExp) => {
     const matches = list.filter((v) => re.test(v.lang))
-    return (
-      matches.find((v) => FEMALE_VOICE.test(v.name)) ?? matches.find((v) => !MALE_VOICE.test(v.name)) ?? matches[0]
-    )
+    return matches.find((v) => wanted.test(v.name)) ?? matches.find((v) => !other.test(v.name)) ?? matches[0]
   }
-  voices[lang] =
+  const v =
     lang === 'en'
       ? (by(/^en[-_]US/i) ?? by(/^en/i) ?? null)
       : (by(/^es[-_]PE/i) ?? by(/^es[-_](419|MX|US|CO|AR|CL)/i) ?? by(/^es/i) ?? null)
-  return voices[lang]
+  voices.set(key, v)
+  return v
 }
 
 if (typeof window !== 'undefined' && window.speechSynthesis) {
-  window.speechSynthesis.onvoiceschanged = () => {
-    delete voices.es
-    delete voices.en
-  }
+  window.speechSynthesis.onvoiceschanged = () => voices.clear()
 }
 
-/** Reads a coach line out loud (optional "Voz del Profe" setting). */
-export function speak(text: string) {
+/**
+ * Reads a line out loud: the Profe (female voice) or the athlete (voice matching their build).
+ * The coach interrupts; an athlete line waits behind at most one other line.
+ */
+export function speak(text: string, who: Speaker = 'coach') {
   const s = useGame.getState()
-  if (!s.voice || !s.sound || useAdState.getState().playing || !window.speechSynthesis) return
+  const synth = window.speechSynthesis
+  const enabled = who === 'coach' ? s.voice : s.playerVoice
+  if (!enabled || !s.sound || useAdState.getState().playing || !synth) return
   const clean = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').trim()
   if (!clean) return
+  if (who === 'player' && synth.pending) return
+  const female = who === 'coach' || (!!s.selected && CHARACTERS[s.selected].look.build === 'female')
   const u = new SpeechSynthesisUtterance(clean)
   const lang = getLang()
-  const v = pickVoice(lang)
+  const v = pickVoice(lang, female ? 'female' : 'male')
   if (v) u.voice = v
   u.lang = v?.lang ?? (lang === 'en' ? 'en-US' : 'es-PE')
-  u.rate = 1.08
-  u.pitch = 1.1
+  u.rate = who === 'coach' ? 1.08 : 1.15
+  u.pitch = who === 'coach' ? 1.1 : female ? 1.2 : 0.9
   u.volume = s.office ? 0.6 : 1
   u.onstart = () => speechListeners.forEach((f) => f(true))
   u.onend = u.onerror = () => speechListeners.forEach((f) => f(false))
-  window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(u)
+  if (who === 'coach') synth.cancel()
+  synth.speak(u)
 }
 
 const speechListeners = new Set<(speaking: boolean) => void>()

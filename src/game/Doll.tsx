@@ -2,7 +2,7 @@ import { forwardRef, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import type { CharacterLook, MuscleGroup, Pose, RepQuality, StationId } from '../core/types'
-import { printTexture } from './brandTextures'
+import { printTexture, vzlaPrintTexture } from './brandTextures'
 import {
   CALF_L,
   FORE_L,
@@ -36,6 +36,10 @@ export interface RepSignal {
   slow?: number
   /** Show the classic mistake instead of clean form. */
   bad?: boolean
+  /** Rep phase driven by the player's thumb (0..1); overrides the timed animation. */
+  live?: number
+  /** Bar shake while grinding or tired, 0..1. */
+  strain?: number
 }
 
 type Props = {
@@ -180,7 +184,10 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
 
     let phase = 0
     let shake = 0
-    if (rep) {
+    if (rep?.live !== undefined) {
+      phase = rep.live
+      shake = Math.sin(time * 70) * 0.04 * (rep.strain ?? 0)
+    } else if (rep) {
       const elapsed = (performance.now() - rep.start) / 1000
       const len = REP_SECONDS * (rep.slow ?? 1)
       if (elapsed >= 0 && elapsed < len) {
@@ -571,7 +578,13 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
           {showPrint && (
             <mesh position={[0, 1.24 - torsoY, chest.zc + chest.rz + 0.006]} rotation={[-0.1, 0, 0]}>
               <planeGeometry args={[0.15, 0.075]} />
-              <meshBasicMaterial map={printTexture()} transparent depthWrite={false} polygonOffset polygonOffsetFactor={-2} />
+              <meshBasicMaterial
+                map={look.topPrint === 'vzla' ? vzlaPrintTexture() : printTexture()}
+                transparent
+                depthWrite={false}
+                polygonOffset
+                polygonOffsetFactor={-2}
+              />
             </mesh>
           )}
           {ts === 'hoodie' && (

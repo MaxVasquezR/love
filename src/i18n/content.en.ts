@@ -284,6 +284,15 @@ export const COACH_EN: Record<CoachMoment, string[]> = {
     'Done, you learned it. Now get to work!',
   ],
   lesson: ['Quick class, this will help you at the real gym.', 'Listen up, they do not teach you this on TikTok.'],
+  stall: ['PUSH! Tap, tap, tap!', 'Do not drop it! Grind through the sticking point!', 'This is where you grow! Push!'],
+  lowTank: ['Your tank is almost empty. Think about the next one.', 'You are burning out. How many do you really have left?'],
+  oneMore: [
+    'Set done! One more or stop? If you have 1 or 2 left, stop and take the bonus.',
+    'Target hit! Your call now: risk one more or finish.',
+    'Nice. Any gas left? One more pays 50% more XP.',
+  ],
+  rirBonus: ['RIR {n}! You stopped right on time, like a pro. XP bonus.', 'That is smart training! You left {n} in the tank.'],
+  greedy: ['Too greedy! The set counts, but no bonus.', 'That was failure. Next time stop with 1 or 2 in the tank.'],
   welcome: [
     'You made it, {name}! Today we go all in.',
     'Hey, {name}! The iron was waiting for you.',
@@ -300,8 +309,9 @@ export const COACH_EN: Record<CoachMoment, string[]> = {
     'Today is recovery: sleep well, eat protein and tomorrow you crush it.',
   ],
   tip: [
-    'Tap inside the green zone. The gold center is the perfect rep.',
-    'More weight gives more XP, but the zone shrinks. Your call.',
+    'Drag the bar up and lower it slowly: that is the perfect rep.',
+    'More weight gives more XP, but it moves slower and the sticking point gets harder. Your call.',
+    'Watch your tank: stop with 1 or 2 reps to spare and you get the RIR bonus.',
     'Daily missions pay well. Check them, do not be lazy.',
     'Shop gear boosts your stats forever.',
     'Combos multiply your XP. Do not break them!',
@@ -376,6 +386,7 @@ export const COACH_EN: Record<CoachMoment, string[]> = {
 export const PLAYER_EN: Partial<Record<CoachMoment, string[]>> = {
   perfect: ['Let us go!', 'Yes!', 'Easy!', 'Boom!'],
   miss: ['Ugh...', 'Heavy!', 'Oh, my back...', 'Grind!'],
+  stall: ['Aaargh!', 'Come on, come on!', 'Up, up!'],
   done: ['I did it!', 'Awesome!', 'Take that!'],
   levelUp: ['Bigger!', 'New level!'],
   welcome: ['Hey, coach!', 'Let us give it everything!', 'Let us go, coach!'],

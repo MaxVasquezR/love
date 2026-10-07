@@ -33,6 +33,11 @@ export type CoachMoment =
   | 'demoCorrect'
   | 'demoDone'
   | 'lesson'
+  | 'stall'
+  | 'lowTank'
+  | 'oneMore'
+  | 'rirBonus'
+  | 'greedy'
 
 export type Mood = 'hype' | 'exigente' | 'decepcionado' | 'orgulloso' | 'calmado'
 
@@ -75,6 +80,11 @@ const MOMENT_MOOD: Record<CoachMoment, Mood> = {
   demoCorrect: 'orgulloso',
   demoDone: 'hype',
   lesson: 'calmado',
+  stall: 'hype',
+  lowTank: 'exigente',
+  oneMore: 'exigente',
+  rirBonus: 'orgulloso',
+  greedy: 'decepcionado',
 }
 
 const COACH: Record<CoachMoment, string[]> = {
@@ -102,6 +112,24 @@ const COACH: Record<CoachMoment, string[]> = {
     'Clase rápida, que esto te sirve en el gym de verdad.',
     'Escucha bien, esto no te lo enseñan en TikTok.',
   ],
+  stall: ['¡EMPUJA! ¡Toca, toca, toca!', '¡No la sueltes! ¡Pasa el punto duro!', '¡Ahí es donde se crece! ¡Empuja!'],
+  lowTank: [
+    'Te queda poco en el tanque. Piensa bien la siguiente.',
+    'Ya te estás quemando. ¿Cuántas te quedan de verdad?',
+  ],
+  oneMore: [
+    '¡Serie cumplida! ¿Una más o paras? Si te quedan 1 o 2, para y cobras el bonus.',
+    '¡Listo el objetivo! Ahora tú decides: arriesgas una más o terminas.',
+    'Bien ahí. ¿Te queda gasolina? Una más paga 50% más de XP.',
+  ],
+  rirBonus: [
+    '¡RIR {n}! Paraste justo a tiempo, como un pro. Bonus de XP.',
+    '¡Eso es entrenar inteligente! Dejaste {n} en el tanque.',
+  ],
+  greedy: [
+    '¡Te pasaste de ambicioso! La serie cuenta, pero sin bonus.',
+    'Eso fue el fallo. Para la próxima, para con 1 o 2 en el tanque.',
+  ],
   welcome: [
     '¡Llegaste, {name}! Hoy se chambea a full.',
     '¡Habla, {name}! El fierro te estaba esperando.',
@@ -118,8 +146,9 @@ const COACH: Record<CoachMoment, string[]> = {
     'Hoy toca recuperar: duerme bien, come proteína y mañana revientas.',
   ],
   tip: [
-    'Toca en la zona verde. El centro dorado es la rep perfecta.',
-    'Más peso da más XP, pero la zona se achica. Tú decides.',
+    'Arrastra la barra hacia arriba y bájala lento: así sale la rep perfecta.',
+    'Más peso da más XP, pero sube más lento y el punto duro pesa más. Tú decides.',
+    'Mira tu tanque: si paras con 1 o 2 reps de sobra, te llevas el bonus RIR.',
     'Las misiones del día pagan bien. Revísalas, no seas flojo.',
     'El equipo de la tienda sube tus stats para siempre.',
     'Los combos multiplican tu XP. ¡No los rompas!',
@@ -197,6 +226,7 @@ const COACH: Record<CoachMoment, string[]> = {
 const PLAYER: Partial<Record<CoachMoment, string[]>> = {
   perfect: ['¡Vamos!', '¡Sí, causa!', '¡Fácil!', '¡Toma!'],
   miss: ['Uff...', '¡Pesa!', 'Ay, mi espalda...', '¡Chamba!'],
+  stall: ['¡Aaargh!', '¡Vamos, vamos!', '¡Sube, sube!'],
   done: ['¡Lo logré!', '¡Bacán!', '¡Toma eso!'],
   levelUp: ['¡Más grande!', '¡Nivel nuevo!'],
   welcome: ['¡Habla, profe!', '¡A darle con todo!', '¡Vamos, profe!'],

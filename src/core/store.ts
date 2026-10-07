@@ -67,6 +67,10 @@ interface GameData {
   quiz: { seen: string[]; sessionsSince: number }
   sound: boolean
   voice: boolean
+  /** The athlete reads their own lines out loud too. */
+  playerVoice: boolean
+  /** First drag-the-bar tutorial already shown. */
+  seenLiftTutorial: boolean
   /** 0..1 background music and effects volume. */
   musicVol: number
   sfxVol: number
@@ -84,8 +88,8 @@ interface GameData {
   nick: string
   /** Friends who beat your challenge and sent it back (recruit rewards). */
   recruits: { names: string[]; day: string | null; today: number }
-  /** 'auto' follows the portal / browser language. */
-  lang: 'auto' | 'es' | 'en'
+  /** Spanish by default; English only when picked in Settings. */
+  lang: 'es' | 'en'
 }
 
 export interface SessionOutcome {
@@ -121,6 +125,8 @@ interface GameActions {
   activatePreWorkout(): void
   setSound(on: boolean): void
   setVoice(on: boolean): void
+  setPlayerVoice(on: boolean): void
+  markLiftTutorial(): void
   setAudio(p: Partial<Pick<GameData, 'musicVol' | 'sfxVol' | 'office'>>): void
   /** Records a lesson quiz; returns the lucas earned (only the first time / first perfect). */
   completeLesson(id: string, score: number): number
@@ -184,7 +190,9 @@ const initialData = (): GameData => ({
   boxAt: 0,
   quiz: { seen: [], sessionsSince: 0 },
   sound: true,
-  voice: false,
+  voice: true,
+  playerVoice: true,
+  seenLiftTutorial: false,
   musicVol: 0.6,
   sfxVol: 0.9,
   office: false,
@@ -196,7 +204,7 @@ const initialData = (): GameData => ({
   lowWeight: 0,
   nick: '',
   recruits: { names: [], day: null, today: 0 },
-  lang: 'auto',
+  lang: 'es',
 })
 
 export function bestLevel(s: Pick<GameData, 'progress' | 'unlocked'>) {
@@ -451,6 +459,8 @@ export const useGame = create<GameStore>()(
 
       setSound: (sound) => set({ sound }),
       setVoice: (voice) => set({ voice }),
+      setPlayerVoice: (playerVoice) => set({ playerVoice }),
+      markLiftTutorial: () => set({ seenLiftTutorial: true }),
       setAudio: (p) => set(p),
       completeLesson: (id, score) => {
         const s = get()
@@ -517,12 +527,14 @@ export const useGame = create<GameStore>()(
     }),
     {
       name: 'gym-coach-save',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => gameStorage),
       skipHydration: true,
       migrate: (persisted, version) => {
-        if (version < 2) return migrateV1((persisted ?? {}) as Record<string, unknown>)
-        return persisted as GameData
+        const data = version < 2 ? migrateV1((persisted ?? {}) as Record<string, unknown>) : (persisted as GameData)
+        // v3: voices on and Spanish unless the player had picked English.
+        if (version < 3) return { ...data, voice: true, playerVoice: true, lang: data.lang === 'en' ? 'en' : 'es' }
+        return data
       },
       partialize: (s) => {
         const data: Partial<GameStore> = { ...s }

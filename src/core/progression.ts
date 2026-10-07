@@ -69,22 +69,29 @@ export function clampKg(ex: Exercise, kg: number): number {
 
 export interface LiftTuning {
   difficulty: number
-  zoneWidth: number
-  perfectWidth: number
-  speed: number
+  /** Bar travel per second (share of the range) with a fresh tank. */
+  liftSpeed: number
+  /** Reps the athlete has before failure at this weight. */
+  repsInTank: number
+  /** Sticking-point resistance with a fresh tank (0 = none). */
+  stallBase: number
+  /** Controlled lowering window (seconds) that makes a rep perfect. */
+  tempoMin: number
+  tempoMax: number
   maxMisses: number
 }
 
-export function liftTuning(ex: Exercise, stats: Stats, weight: number): LiftTuning {
+/** `reps` / `load` come from the training goal: at the suggested weight the set ends about 2 reps short of failure. */
+export function liftTuning(ex: Exercise, stats: Stats, weight: number, reps = 10, load = 0.75): LiftTuning {
   const difficulty = Math.max(0.2, weight / capacityKg(ex, stats))
-  const zoneWidth = clamp(34 - (difficulty - 0.5) * 30 + stats.tec * 0.4 - 4, 6, 40)
-  const speed = clamp(1.2 + difficulty * 0.9 - stats.end * 0.02, 0.9, 3.2)
   return {
     difficulty,
-    zoneWidth,
-    perfectWidth: Math.max(2.5, zoneWidth * 0.22),
-    speed,
-    maxMisses: 3,
+    liftSpeed: clamp(1.9 - difficulty, 0.45, 1.6),
+    repsInTank: clamp(reps + 2.8 + stats.end * 0.06 - (difficulty - load) * reps * 1.6, 1.2, 45),
+    stallBase: clamp((difficulty - 0.75) * 2.2, 0, 0.9),
+    tempoMin: Math.max(0.5, 0.9 - stats.tec * 0.01),
+    tempoMax: 2.6 + stats.tec * 0.04,
+    maxMisses: 2,
   }
 }
 

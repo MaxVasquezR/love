@@ -47,7 +47,8 @@ export interface CharacterLook {
   top: string
   topStyle: TopStyle
   /** Prints the BONNETTY logo on the chest. */
-  topPrint?: boolean
+  /** Chest print: the Bonnetty logo, or the Venezuela national team print. */
+  topPrint?: boolean | 'vzla'
   bottom: string
   bottomStyle: BottomStyle
   shoes: string

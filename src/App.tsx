@@ -11,7 +11,7 @@ import { CHARACTERS } from './data/characters'
 import { coachLine, coachPose } from './data/coach'
 import { randomTip } from './data/tips'
 import { AdService } from './ads/AdService'
-import { setLang, useT } from './i18n'
+import { setLang, urlLang, useT } from './i18n'
 import './i18n/content'
 import type { RepSignal } from './game/Doll'
 import type { ActorId, SceneId } from './game/GameCanvas'
@@ -65,7 +65,7 @@ function boot(): Promise<BootResult> {
     await AdService.init()
     await useGame.persist.rehydrate()
     const s = useGame.getState()
-    setLang(s.lang)
+    setLang(urlLang() ?? s.lang)
     s.ensureMissions()
     s.syncEnergy()
     let offline = 0

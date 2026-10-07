@@ -19,6 +19,8 @@ import { track } from '../core/analytics'
 import type { RematchInfo } from './RematchModal'
 import { ShareMoment } from '../components/ShareMoment'
 import { challengeLink, playerName } from '../core/share'
+import { LiftPad } from './LiftPad'
+import { freshLift, repsLeft, type LiftEvent, type LiftState } from '../core/liftEngine'
 
 type Step = 'menu' | 'station' | 'exercise' | 'setup' | 'routines' | 'lifting' | 'rest' | 'second' | 'results'
 
@@ -53,9 +55,21 @@ interface SetState {
   xp: number
   last: RepQuality | null
   hitId: number
+  /** Stopped 1-2 reps short of failure (RIR bonus). */
+  rir: boolean
 }
 
-const freshSet = (): SetState => ({ done: 0, perfect: 0, combo: 0, maxCombo: 0, misses: 0, xp: 0, last: null, hitId: 0 })
+const freshSet = (): SetState => ({
+  done: 0,
+  perfect: 0,
+  combo: 0,
+  maxCombo: 0,
+  misses: 0,
+  xp: 0,
+  last: null,
+  hitId: 0,
+  rir: false,
+})
 
 interface PlanStep {
   exercise: Exercise
@@ -81,11 +95,12 @@ interface Totals {
   perfect: number
   maxCombo: number
   sets: number
+  rirSets: number
   /** Heaviest completed set per exercise. */
   done: Record<string, { kg: number; reps: number }>
 }
 
-const freshTotals = (): Totals => ({ xp: 0, goodReps: 0, perfect: 0, maxCombo: 0, sets: 0, done: {} })
+const freshTotals = (): Totals => ({ xp: 0, goodReps: 0, perfect: 0, maxCombo: 0, sets: 0, rirSets: 0, done: {} })
 
 interface Results {
   xp: number
@@ -98,14 +113,19 @@ interface Results {
   boosted: boolean
   exerciseId: string
   kg: number
+  rirSets: number
 }
 
 /** Combo worth showing off from the results screen. */
 const SHARE_COMBO = 8
 
-const LOCK_MS = 480
 /** Sessions now have several sets; keeps leveling pace close to one set per energy. */
 const XP_SCALE = 0.6
+/** Reps past the target pay more: the push-your-luck part of the set. */
+const EXTRA_REP_XP = 1.5
+const RIR_XP_BONUS = 1.25
+/** Tank left after a second chance. */
+const SECOND_CHANCE_TANK = 0.45
 
 function nextCursor(c: Cursor, p: Plan): Cursor | null {
   if (c.set + 1 < p.steps[c.step].sets) return { step: c.step, set: c.set + 1 }
@@ -120,8 +140,10 @@ function addToTotals(tt: Totals, s: SetState, ps: PlanStep, completed: boolean) 
   tt.maxCombo = Math.max(tt.maxCombo, s.maxCombo)
   if (!completed) return
   tt.sets += 1
+  if (s.rir) tt.rirSets += 1
   const prev = tt.done[ps.exercise.id]
-  if (!prev || ps.weight > prev.kg) tt.done[ps.exercise.id] = { kg: ps.weight, reps: GOALS[ps.goal].reps }
+  if (!prev || ps.weight > prev.kg || (ps.weight === prev.kg && s.done > prev.reps))
+    tt.done[ps.exercise.id] = { kg: ps.weight, reps: s.done }
 }
 
 export function Training(props: Props) {
@@ -141,7 +163,8 @@ export function Training(props: Props) {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [cursor, setCursor] = useState<Cursor>({ step: 0, set: 0 })
   const [hud, setHud] = useState<SetState>(freshSet)
-  const [zone, setZone] = useState(50)
+  const [padKey, setPadKey] = useState(0)
+  const [startTank, setStartTank] = useState(1)
   const [results, setResults] = useState<Results | null>(null)
   const [rest, setRest] = useState<{ until: number; tip: string } | null>(null)
   const [restLeft, setRestLeft] = useState(0)
@@ -153,10 +176,12 @@ export function Training(props: Props) {
   const totals = useRef<Totals>(freshTotals())
   const secondUsed = useRef(false)
   const sess = useRef<SetState>(freshSet())
-  const markerEl = useRef<HTMLDivElement>(null)
-  const markerPos = useRef(0)
   const lockUntil = useRef(0)
-  const startedAt = useRef(0)
+  const liftState = useRef<LiftState>(freshLift())
+  const saidLowTank = useRef(false)
+  const lastStallLine = useRef(0)
+  const seenTutorial = useGame((s) => s.seenLiftTutorial)
+  const markTutorial = useGame((s) => s.markLiftTutorial)
 
   useEffect(() => {
     if (step === 'setup' && exercise) setFocus({ rig: exercise.rig, kg: weight })
@@ -165,7 +190,11 @@ export function Training(props: Props) {
   const cur: PlanStep | null = plan ? plan.steps[cursor.step] : null
   const liftEx = cur?.exercise ?? exercise
   const liftKg = cur ? cur.weight : weight
-  const tuning = useMemo(() => (liftEx ? liftTuning(liftEx, stats, liftKg) : null), [liftEx, stats, liftKg])
+  const liftGoal = GOALS[cur?.goal ?? goal]
+  const tuning = useMemo(
+    () => (liftEx ? liftTuning(liftEx, stats, liftKg, liftGoal.reps, liftGoal.load) : null),
+    [liftEx, stats, liftKg, liftGoal],
+  )
   const daily = useMemo(() => dailyRoutine(todayKey(), level), [level])
   const dailyDone = game.routineDaily === todayKey()
 
@@ -230,8 +259,9 @@ export function Training(props: Props) {
       setCursor(c)
       sess.current = freshSet()
       setHud(freshSet())
-      setZone(35 + Math.random() * 30)
-      startedAt.current = performance.now()
+      setStartTank(1)
+      setPadKey((k) => k + 1)
+      saidLowTank.current = false
       lockUntil.current = performance.now() + (moved ? 1400 : 500)
       repRef.current = {
         start: -1e9,
@@ -291,23 +321,6 @@ export function Training(props: Props) {
     })
     begin({ steps, routine: r, daily: r.id === 'daily' }, ROUTINE_ENERGY)
   }
-
-  // Marker animation: writes straight to the DOM so React doesn't re-render every frame.
-  useEffect(() => {
-    if (step !== 'lifting' || !tuning) return
-    let raf = 0
-    const loop = (now: number) => {
-      if (now >= lockUntil.current) {
-        const u = ((now - startedAt.current) / 1000) * tuning.speed
-        const phase = u % 2
-        markerPos.current = (phase < 1 ? phase : 2 - phase) * 100
-        if (markerEl.current) markerEl.current.style.left = `${markerPos.current}%`
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [step, tuning])
 
   const finish = useCallback(
     (failed: boolean) => {
@@ -379,6 +392,7 @@ export function Training(props: Props) {
         boosted,
         exerciseId: mainId,
         kg: mainKg,
+        rirSets: tt.rirSets,
       })
       setStep('results')
       sfx.coin()
@@ -477,74 +491,108 @@ export function Training(props: Props) {
     return () => window.clearInterval(id)
   }, [step, rest, advance])
 
-  const lift = useCallback(() => {
-    if (step !== 'lifting' || !tuning || !cur) return
-    const now = performance.now()
-    if (now < lockUntil.current) return
-    lockUntil.current = now + LOCK_MS
-
-    const dist = Math.abs(markerPos.current - zone)
-    const quality: RepQuality =
-      dist <= tuning.perfectWidth / 2 ? 'perfect' : dist <= tuning.zoneWidth / 2 ? 'good' : 'miss'
-
-    const s = { ...sess.current }
-    if (quality === 'miss') {
-      s.misses += 1
-      s.combo = 0
-      sfx.miss()
-    } else {
-      s.done += 1
-      s.combo += 1
-      if (quality === 'perfect') s.perfect += 1
-      s.maxCombo = Math.max(s.maxCombo, s.combo)
-      s.xp += repXp(cur.weight, tuning.difficulty, quality, s.combo)
-      if (quality === 'perfect') sfx.perfect()
-      else sfx.rep()
-    }
-    s.last = quality
-    s.hitId += 1
-    sess.current = s
-    setHud(s)
-    music.setIntensity(0.15 + Math.min(1, s.combo / 10) * 0.85)
-    repRef.current = { ...repRef.current, start: now, quality }
-
-    if (quality === 'miss') {
-      setCoachPose(coachPose('miss'))
-      say('coach', coachLine('miss'), 1800)
-      say('player', playerLine('miss'), 1400)
-    } else if ([3, 5, 8, 12].includes(s.combo)) {
-      setCoachPose(coachPose('combo'))
-      say('coach', coachLine('combo', { n: s.combo }), 1800)
-    } else if (quality === 'perfect' && Math.random() < 0.5) {
-      setCoachPose(coachPose('perfect'))
-      say('coach', coachLine('perfect'), 1600)
-    } else if (Math.random() < 0.3) {
-      setCoachPose(coachPose('good'))
-      say('coach', coachLine('good'), 1500)
-    }
-
-    if (s.done >= GOALS[cur.goal].reps) {
+  /** Ends the set on the player's call; stopping 1-2 reps short of failure earns the RIR bonus. */
+  const endSet = useCallback(
+    (byChoice: boolean) => {
+      if (!tuning) return
       lockUntil.current = Infinity
-      window.setTimeout(() => completeSet(s), 650)
-    } else if (s.misses >= tuning.maxMisses) {
-      lockUntil.current = Infinity
-      window.setTimeout(() => failSet(s), 650)
-    } else {
-      setZone(30 + Math.random() * 40)
-    }
-  }, [completeSet, cur, failSet, repRef, say, setCoachPose, step, tuning, zone])
-
-  useEffect(() => {
-    if (step !== 'lifting') return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'Enter') {
-        e.preventDefault()
-        lift()
+      const s = { ...sess.current }
+      const left = repsLeft(liftState.current, tuning)
+      if (byChoice && left >= 0.5 && left <= 2.5) {
+        s.rir = true
+        s.xp = Math.round(s.xp * RIR_XP_BONUS)
+        sfx.coin()
+        setCoachPose(coachPose('rirBonus'))
+        say('coach', coachLine('rirBonus', { n: Math.round(left) }), 2600)
       }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [lift, step])
+      sess.current = s
+      setHud(s)
+      window.setTimeout(() => completeSet(s), s.rir ? 900 : 300)
+    },
+    [completeSet, say, setCoachPose, tuning],
+  )
+
+  const onLiftEvent = useCallback(
+    (e: LiftEvent, st: LiftState) => {
+      if (step !== 'lifting' || !tuning || !cur) return
+      const now = performance.now()
+      const target = GOALS[cur.goal].reps
+
+      if (e.type === 'lockout') {
+        repRef.current = { ...repRef.current, start: now, quality: 'good' }
+        return
+      }
+      if (e.type === 'stall') {
+        if (now - lastStallLine.current > 4000) {
+          lastStallLine.current = now
+          setCoachPose(coachPose('stall'))
+          say('coach', coachLine('stall'), 1400)
+          say('player', playerLine('stall'), 1200)
+        }
+        return
+      }
+
+      const quality: RepQuality = e.type === 'miss' ? 'miss' : e.quality
+      const s = { ...sess.current }
+      const extra = s.done >= target
+      if (quality === 'miss') {
+        s.misses += 1
+        s.combo = 0
+        sfx.miss()
+      } else {
+        s.done += 1
+        s.combo += 1
+        if (quality === 'perfect') s.perfect += 1
+        s.maxCombo = Math.max(s.maxCombo, s.combo)
+        s.xp += Math.round(repXp(cur.weight, tuning.difficulty, quality, s.combo) * (extra ? EXTRA_REP_XP : 1))
+        if (quality === 'perfect') sfx.perfect()
+        else sfx.rep()
+      }
+      s.last = quality
+      s.hitId += 1
+      sess.current = s
+      setHud(s)
+      music.setIntensity(0.15 + Math.min(1, s.combo / 10) * 0.85)
+
+      if (quality === 'miss') {
+        if (extra) {
+          // Pushed past the target and failed: the set counts, the RIR bonus is gone.
+          setCoachPose(coachPose('greedy'))
+          say('coach', coachLine('greedy'), 2200)
+          endSet(false)
+          return
+        }
+        setCoachPose(coachPose('miss'))
+        say('coach', coachLine('miss'), 1800)
+        say('player', playerLine('miss'), 1400)
+        if (s.misses >= tuning.maxMisses) {
+          lockUntil.current = Infinity
+          window.setTimeout(() => failSet(s), 650)
+        }
+        return
+      }
+
+      const left = repsLeft(st, tuning)
+      if (s.done === target) {
+        setCoachPose(coachPose('oneMore'))
+        say('coach', coachLine('oneMore'), 2400)
+      } else if (!saidLowTank.current && left < 1.6) {
+        saidLowTank.current = true
+        setCoachPose(coachPose('lowTank'))
+        say('coach', coachLine('lowTank'), 2000)
+      } else if ([3, 5, 8, 12].includes(s.combo)) {
+        setCoachPose(coachPose('combo'))
+        say('coach', coachLine('combo', { n: s.combo }), 1800)
+      } else if (quality === 'perfect' && Math.random() < 0.4) {
+        setCoachPose(coachPose('perfect'))
+        say('coach', coachLine('perfect'), 1600)
+      } else if (Math.random() < 0.25) {
+        setCoachPose(coachPose('good'))
+        say('coach', coachLine('good'), 1500)
+      }
+    },
+    [cur, endSet, failSet, repRef, say, setCoachPose, step, tuning],
+  )
 
   const secondChance = async () => {
     if (adBusy) return
@@ -560,7 +608,8 @@ export function Training(props: Props) {
     sess.current = s
     setHud(s)
     lockUntil.current = performance.now() + 700
-    startedAt.current = performance.now()
+    setStartTank(SECOND_CHANCE_TANK)
+    setPadKey((k) => k + 1)
     setPlayerPose('lift')
     setCoachPose('fist')
     setStep('lifting')
@@ -853,26 +902,34 @@ export function Training(props: Props) {
               </b>
             </span>
           </div>
-          <div className="meter" onPointerDown={lift}>
-            <div
-              className="meter__zone"
-              style={{ left: `${zone - tuning.zoneWidth / 2}%`, width: `${tuning.zoneWidth}%` }}
-            />
-            <div
-              className="meter__perfect"
-              style={{ left: `${zone - tuning.perfectWidth / 2}%`, width: `${tuning.perfectWidth}%` }}
-            />
-            <div className="meter__marker" ref={markerEl} />
+          <LiftPad
+            tuning={tuning}
+            resetKey={padKey}
+            startTank={startTank}
+            lockRef={lockUntil}
+            stateRef={liftState}
+            repRef={repRef}
+            onEvent={onLiftEvent}
+            tutorial={!seenTutorial}
+            onTutorialDone={markTutorial}
+          >
             {hud.last && (
               <span key={hud.hitId} className={`meter__pop pop--${hud.last}`}>
                 {t(hud.last)}
                 {hud.last !== 'miss' && hud.combo >= 2 ? ` x${hud.combo}` : ''}
               </span>
             )}
-          </div>
-          <button type="button" className="btn btn--lift" onPointerDown={lift}>
-            {t('lift')}
-          </button>
+          </LiftPad>
+          {hud.done >= GOALS[cur.goal].reps ? (
+            <div className="set-choice">
+              <p className="hint">💪 {t('oneMore')}</p>
+              <button type="button" className="btn btn--lift" onClick={() => endSet(true)}>
+                ✋ {t('endSet')}
+              </button>
+            </div>
+          ) : (
+            <p className="hint center">{t('liftHint')}</p>
+          )}
         </>
       )}
 
@@ -921,6 +978,7 @@ export function Training(props: Props) {
             {results.boosted && <span className="boost-chip">⚡ x2 XP</span>}
           </div>
           {results.bonus > 0 && <p className="banner">🏅 {t('routineDone', { coins: results.bonus })}</p>}
+          {results.rirSets > 0 && <p className="banner">🎯 {t('rirSets', { n: results.rirSets })}</p>}
           <div className="result-row">
             <div>
               <small>{t('xpGained')}</small>

@@ -23,7 +23,7 @@ export const useTalk = create<TalkState>()((set) => ({
     const id = ++seq
     window.clearTimeout(timers[actor])
     set((s) => ({ lines: { ...s.lines, [actor]: { text, id } } }))
-    if (actor === 'coach') speak(text)
+    speak(text, actor)
     timers[actor] = window.setTimeout(() => {
       set((s) => (s.lines[actor]?.id === id ? { lines: { ...s.lines, [actor]: undefined } } : s))
     }, ms)

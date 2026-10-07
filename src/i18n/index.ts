@@ -4,27 +4,17 @@ import { en } from './en'
 
 export type TKey = keyof Dict
 export type Lang = 'es' | 'en'
-export type LangSetting = Lang | 'auto'
 
 const DICTS: Record<Lang, Dict> = { es, en }
 
-/** CrazyGames passes the player's locale through its SDK; elsewhere the browser decides. */
-function portalLocale(): string | undefined {
-  try {
-    return window.CrazyGames?.SDK.user?.systemInfo?.locale
-  } catch {
-    return undefined
-  }
-}
-
-export function detectLang(): Lang {
+/** English challenge links carry `?hl=en`; that visit opens in English. */
+export function urlLang(): Lang | null {
   const hl = new URLSearchParams(window.location.search).get('hl')
-  if (hl === 'en' || hl === 'es') return hl
-  const locale = portalLocale() ?? navigator.languages?.[0] ?? navigator.language ?? 'es'
-  return locale.toLowerCase().startsWith('es') ? 'es' : 'en'
+  return hl === 'en' || hl === 'es' ? hl : null
 }
 
-let lang: Lang = detectLang()
+/** Spanish unless the link or the Settings choice says otherwise. */
+let lang: Lang = urlLang() ?? 'es'
 const listeners = new Set<() => void>()
 
 function apply(l: Lang) {
@@ -36,9 +26,7 @@ export function getLang() {
   return lang
 }
 
-/** Applies the saved setting ('auto' re-detects, e.g. after the portal SDK is ready). */
-export function setLang(setting: LangSetting) {
-  const next = setting === 'auto' ? detectLang() : setting
+export function setLang(next: Lang) {
   if (next === lang) return
   lang = next
   apply(lang)
