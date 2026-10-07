@@ -1,4 +1,4 @@
-import { headline, parseLink } from './_challenge'
+import { headline, parseLink } from './_challenge.js'
 
 export const config = { runtime: 'edge' }
 

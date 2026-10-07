@@ -1,5 +1,5 @@
-import { exerciseById } from '../src/data/exercises'
-import { EXERCISES_EN } from '../src/i18n/exercises.en'
+import { exerciseById } from '../src/data/exercises.js'
+import { EXERCISES_EN } from '../src/i18n/exercises.en.js'
 
 export type Lang = 'es' | 'en'
 

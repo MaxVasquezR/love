@@ -1,8 +1,6 @@
 import { ImageResponse } from '@vercel/og'
 import type { ReactElement } from 'react'
-import { headline, parseLink } from './_challenge'
-
-export const config = { runtime: 'edge' }
+import { headline, parseLink } from './_challenge.js'
 
 const ORANGE = '#ff6b4a'
 const LIME = '#c8f542'
@@ -31,8 +29,8 @@ async function loadFont(text: string): Promise<ArrayBuffer | null> {
   }
 }
 
-/** 1200x630 preview card for challenge / invite links. */
-export default async function handler(req: Request) {
+/** 1200x630 preview card for challenge / invite links. Runs on Node: the Edge runtime blocks the WebAssembly renderer outside Next.js. */
+export async function GET(req: Request) {
   const link = parseLink(new URL(req.url))
   const { sub } = headline(link)
   const en = link.lang === 'en'
