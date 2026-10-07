@@ -692,10 +692,10 @@ p {
   color: var(--gold);
 }
 
-/* ---------- lift pad: drag the bar ---------- */
+/* ---------- lift pad: two thumbs, one per side of the bar ---------- */
 .liftpad {
   position: relative;
-  height: clamp(170px, 30vh, 280px);
+  height: clamp(200px, 34vh, 300px);
   border-radius: 18px;
   background:
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 22px),
@@ -716,7 +716,7 @@ p {
 
 .liftpad__rail {
   position: absolute;
-  inset: 0 64px 0 64px;
+  inset: 0 48px 0 48px;
 }
 
 .liftpad__rail::before {
@@ -749,16 +749,110 @@ p {
   transition: opacity 0.3s;
 }
 
+.liftpad__half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  pointer-events: none;
+}
+
+.liftpad__half--L {
+  left: 0;
+  border-right: 1px dashed rgba(255, 255, 255, 0.06);
+}
+
+.liftpad__half--R {
+  right: 0;
+}
+
 .liftpad__bar {
   position: absolute;
   left: 50%;
   bottom: 8%;
-  width: min(78%, 240px);
+  width: min(92%, 300px);
   height: 26px;
   display: flex;
   align-items: center;
   transform: translate(-50%, 50%);
   pointer-events: none;
+}
+
+.liftpad__grip {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin: 0 -4px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+
+.liftpad__grip[data-on='1'] {
+  border: 2px solid var(--lime);
+  background: rgba(166, 255, 77, 0.3);
+  box-shadow: 0 0 14px rgba(166, 255, 77, 0.6);
+}
+
+.liftpad--grip .liftpad__grip:not([data-on='1']) {
+  animation: grip-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes grip-pulse {
+  to {
+    box-shadow: 0 0 0 8px rgba(255, 255, 255, 0.18);
+  }
+}
+
+.liftpad__warn {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  transform: translateX(-50%);
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  background: rgba(255, 201, 74, 0.18);
+  color: var(--gold);
+}
+
+.liftpad__warn[data-kind='brake'] {
+  background: rgba(255, 74, 107, 0.2);
+  color: var(--danger);
+}
+
+.liftpad__warn[data-kind='spot'] {
+  background: rgba(166, 255, 77, 0.18);
+  color: var(--lime);
+}
+
+.liftpad__thumbs {
+  display: flex;
+  gap: 90px;
+}
+
+.liftpad__chalk {
+  width: 64px;
+  height: 40px;
+  border-radius: 8px 8px 22px 22px;
+  background: radial-gradient(ellipse at 50% 20%, #fff 0 30%, #d9dde2 60%, #9aa1a8);
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.45);
+  animation: grip-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.liftpad--chalk .liftpad__tip {
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .liftpad__bar span {
@@ -961,6 +1055,14 @@ p {
 
 .pop--miss {
   color: var(--danger);
+}
+
+.pop--dirty {
+  color: #ff9a4a;
+}
+
+.pop--assisted {
+  color: #7fd3ff;
 }
 
 .result-row {

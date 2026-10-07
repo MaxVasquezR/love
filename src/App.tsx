@@ -18,6 +18,7 @@ import type { ActorId, SceneId } from './game/GameCanvas'
 import type { RigFocus } from './game/equipment/RigSet'
 import { music } from './core/music'
 import { stopVoice } from './core/audio'
+import { ambience } from './core/gymAudio'
 import { BossScreen } from './components/BossScreen'
 import { CoachDemo } from './screens/CoachDemo'
 import { STATION_RIG } from './data/exercises'
@@ -216,6 +217,8 @@ export default function App() {
       }
     }
     const onTouch = (e: TouchEvent) => {
+      // Two thumbs on the lift pad are a grip, not the boss key.
+      if (e.target instanceof Element && e.target.closest('.liftpad')) return
       if (e.touches.length === 2) toggle()
     }
     window.addEventListener('keydown', onKey)
@@ -229,6 +232,10 @@ export default function App() {
     setBoss(false)
     music.setBoss(false)
   }
+
+  useEffect(() => {
+    ambience((screen === 'hub' || screen === 'training') && !boss)
+  }, [screen, boss])
 
   const busy = !!(modal || levelUp || pr || rematch || ficha || demoEx || challenge || offline > 0)
 

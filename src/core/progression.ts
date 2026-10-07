@@ -78,6 +78,10 @@ export interface LiftTuning {
   /** Controlled lowering window (seconds) that makes a rep perfect. */
   tempoMin: number
   tempoMax: number
+  /** Slowest the weight lets itself be lowered (range per second): heavier pulls down harder. */
+  eccCreep: number
+  /** Strength difference between arms that has to be corrected (share of speed). */
+  wobble: number
   maxMisses: number
 }
 
@@ -87,10 +91,12 @@ export function liftTuning(ex: Exercise, stats: Stats, weight: number, reps = 10
   return {
     difficulty,
     liftSpeed: clamp(1.9 - difficulty, 0.45, 1.6),
-    repsInTank: clamp(reps + 2.8 + stats.end * 0.06 - (difficulty - load) * reps * 1.6, 1.2, 45),
+    repsInTank: clamp(reps + 3.2 + stats.end * 0.06 - (difficulty - load) * reps * 1.6, 1.2, 45),
     stallBase: clamp((difficulty - 0.75) * 2.2, 0, 0.9),
     tempoMin: Math.max(0.5, 0.9 - stats.tec * 0.01),
     tempoMax: 2.6 + stats.tec * 0.04,
+    eccCreep: clamp(0.25 + difficulty * 0.45, 0.3, 0.95),
+    wobble: clamp(0.05 + (difficulty - 0.5) * 0.3, 0.03, 0.35),
     maxMisses: 2,
   }
 }
@@ -98,7 +104,7 @@ export function liftTuning(ex: Exercise, stats: Stats, weight: number, reps = 10
 export function repXp(weight: number, difficulty: number, quality: RepQuality, combo: number) {
   if (quality === 'miss') return 0
   const base = 2 + Math.pow(Math.max(weight, 10), 0.7) * Math.min(difficulty, 1.6)
-  const q = quality === 'perfect' ? 1.5 : 1
+  const q = quality === 'perfect' ? 1.5 : quality === 'dirty' ? 0.5 : quality === 'assisted' ? 0.4 : 1
   const comboMult = 1 + Math.min(combo, 5) * 0.1
   return Math.round(base * q * comboMult)
 }

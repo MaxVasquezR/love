@@ -11,6 +11,7 @@ import { randomTip } from '../data/tips'
 import { AdService } from '../ads/AdService'
 import { sfx } from '../core/audio'
 import { music } from '../core/music'
+import { gymSfx, restBreathing, stopRestBreathing } from '../core/gymAudio'
 import type { RepSignal } from '../game/Doll'
 import type { RigFocus } from '../game/equipment/RigSet'
 import { demoSeen } from './CoachDemo'
@@ -57,6 +58,8 @@ interface SetState {
   hitId: number
   /** Stopped 1-2 reps short of failure (RIR bonus). */
   rir: boolean
+  /** Reps finished with the Profe spotting. */
+  assisted: number
 }
 
 const freshSet = (): SetState => ({
@@ -69,6 +72,7 @@ const freshSet = (): SetState => ({
   last: null,
   hitId: 0,
   rir: false,
+  assisted: 0,
 })
 
 interface PlanStep {
@@ -96,11 +100,12 @@ interface Totals {
   maxCombo: number
   sets: number
   rirSets: number
+  assisted: number
   /** Heaviest completed set per exercise. */
   done: Record<string, { kg: number; reps: number }>
 }
 
-const freshTotals = (): Totals => ({ xp: 0, goodReps: 0, perfect: 0, maxCombo: 0, sets: 0, rirSets: 0, done: {} })
+const freshTotals = (): Totals => ({ xp: 0, goodReps: 0, perfect: 0, maxCombo: 0, sets: 0, rirSets: 0, assisted: 0, done: {} })
 
 interface Results {
   xp: number
@@ -114,6 +119,7 @@ interface Results {
   exerciseId: string
   kg: number
   rirSets: number
+  assisted: number
 }
 
 /** Combo worth showing off from the results screen. */
@@ -137,6 +143,7 @@ function addToTotals(tt: Totals, s: SetState, ps: PlanStep, completed: boolean) 
   tt.xp += s.xp * GOALS[ps.goal].xpMult
   tt.goodReps += s.done
   tt.perfect += s.perfect
+  tt.assisted += s.assisted
   tt.maxCombo = Math.max(tt.maxCombo, s.maxCombo)
   if (!completed) return
   tt.sets += 1
@@ -179,13 +186,27 @@ export function Training(props: Props) {
   const lockUntil = useRef(0)
   const liftState = useRef<LiftState>(freshLift())
   const saidLowTank = useRef(false)
-  const lastStallLine = useRef(0)
+  /** Last stall / tilt / slam line, so form cues don't pile up. */
+  const lastFormLine = useRef(0)
+  /** Session fatigue 0..1: red face, sweat and how hard the athlete breathes between sets. */
+  const fatigue = useRef(0)
   const seenTutorial = useGame((s) => s.seenLiftTutorial)
   const markTutorial = useGame((s) => s.markLiftTutorial)
 
   useEffect(() => {
     if (step === 'setup' && exercise) setFocus({ rig: exercise.rig, kg: weight })
   }, [step, exercise, weight, setFocus])
+
+  // Loading plates: every weight change in setup sounds like a plate going on the bar.
+  const loadedKg = useRef(0)
+  useEffect(() => {
+    if (step !== 'setup') {
+      loadedKg.current = 0
+      return
+    }
+    if (loadedKg.current && weight !== loadedKg.current) gymSfx.clank(weight, weight > loadedKg.current ? 0.45 : 0.3)
+    loadedKg.current = weight
+  }, [step, weight])
 
   const cur: PlanStep | null = plan ? plan.steps[cursor.step] : null
   const liftEx = cur?.exercise ?? exercise
@@ -202,7 +223,10 @@ export function Training(props: Props) {
     setPlayerPose('idle')
     setCoachPose(coachPose('pickStation'))
     say('coach', coachLine('pickStation'))
-    return () => AdService.setGameplay(false)
+    return () => {
+      AdService.setGameplay(false)
+      stopRestBreathing()
+    }
   }, [say, setCoachPose, setPlayerPose])
 
   // Coach reacts to the chosen weight: too light or very heavy.
@@ -262,6 +286,7 @@ export function Training(props: Props) {
       setStartTank(1)
       setPadKey((k) => k + 1)
       saidLowTank.current = false
+      stopRestBreathing()
       lockUntil.current = performance.now() + (moved ? 1400 : 500)
       repRef.current = {
         start: -1e9,
@@ -269,6 +294,7 @@ export function Training(props: Props) {
         exerciseId: ps.exercise.id,
         kg: ps.weight,
         heavy: liftTuning(ps.exercise, stats, ps.weight).difficulty >= 0.9,
+        fatigue: fatigue.current,
       }
       setPlayerPose('lift')
       setCoachPose('clap')
@@ -297,6 +323,7 @@ export function Training(props: Props) {
     setPlan(p)
     totals.current = freshTotals()
     secondUsed.current = false
+    fatigue.current = 0
     setResults(null)
     const s = useGame.getState()
     const first = p.steps[0]
@@ -381,6 +408,7 @@ export function Training(props: Props) {
       })
       if (outcome.levelsGained > 0) track('level_up', { level: outcome.newLevel })
       if (outcome.challengeWon) track('challenge_won', { exercise: mainId, kg: mainKg, rev: !!outcome.challenge?.rev })
+      restBreathing(Math.min(1, 0.4 + fatigue.current * 0.6), 8)
       setResults({
         xp,
         coins,
@@ -393,6 +421,7 @@ export function Training(props: Props) {
         exerciseId: mainId,
         kg: mainKg,
         rirSets: tt.rirSets,
+        assisted: tt.assisted,
       })
       setStep('results')
       sfx.coin()
@@ -434,10 +463,13 @@ export function Training(props: Props) {
       if (!p) return
       const c = cursorRef.current
       addToTotals(totals.current, s, p.steps[c.step], true)
+      gymSfx.rack(p.steps[c.step].weight)
       const next = nextCursor(c, p)
       if (!next) return finish(false)
       AdService.setGameplay(false)
       const sec = p.routine ? p.routine.rest : GOALS[p.steps[c.step].goal].restSec
+      restBreathing(Math.min(1, (1 - liftState.current.tank) * 0.8 + fatigue.current * 0.5), sec)
+      fatigue.current *= 0.75
       setRest({ until: Date.now() + sec * 1000, tip: randomTip() })
       setRestLeft(sec)
       setStep('rest')
@@ -522,12 +554,27 @@ export function Training(props: Props) {
         repRef.current = { ...repRef.current, start: now, quality: 'good' }
         return
       }
-      if (e.type === 'stall') {
-        if (now - lastStallLine.current > 4000) {
-          lastStallLine.current = now
-          setCoachPose(coachPose('stall'))
-          say('coach', coachLine('stall'), 1400)
-          say('player', playerLine('stall'), 1200)
+      if (e.type === 'chalk' || e.type === 'grip') {
+        if (e.type === 'grip') music.setIntensity(0.2)
+        if (cursorRef.current.set === 0) {
+          setCoachPose(coachPose(e.type))
+          say('coach', coachLine(e.type), 1600)
+        }
+        return
+      }
+      if (e.type === 'assist') {
+        lastFormLine.current = now
+        setCoachPose('spot')
+        say('coach', coachLine('spot'), 1800)
+        say('player', playerLine('stall'), 1200)
+        return
+      }
+      if (e.type === 'stall' || e.type === 'tilt' || e.type === 'slam') {
+        if (now - lastFormLine.current > 4000) {
+          lastFormLine.current = now
+          setCoachPose(coachPose(e.type))
+          say('coach', coachLine(e.type), 1600)
+          if (e.type === 'stall') say('player', playerLine('stall'), 1200)
         }
         return
       }
@@ -535,19 +582,23 @@ export function Training(props: Props) {
       const quality: RepQuality = e.type === 'miss' ? 'miss' : e.quality
       const s = { ...sess.current }
       const extra = s.done >= target
+      const clean = quality === 'perfect' || quality === 'good'
       if (quality === 'miss') {
         s.misses += 1
         s.combo = 0
         sfx.miss()
       } else {
         s.done += 1
-        s.combo += 1
+        s.combo = clean ? s.combo + 1 : 0
         if (quality === 'perfect') s.perfect += 1
+        if (quality === 'assisted') s.assisted += 1
         s.maxCombo = Math.max(s.maxCombo, s.combo)
         s.xp += Math.round(repXp(cur.weight, tuning.difficulty, quality, s.combo) * (extra ? EXTRA_REP_XP : 1))
         if (quality === 'perfect') sfx.perfect()
-        else sfx.rep()
+        else if (clean) sfx.rep()
       }
+      fatigue.current = Math.min(1, fatigue.current + 0.008 + tuning.difficulty * 0.014 + (quality === 'assisted' ? 0.04 : 0))
+      repRef.current.fatigue = fatigue.current
       s.last = quality
       s.hitId += 1
       sess.current = s
@@ -562,8 +613,9 @@ export function Training(props: Props) {
           endSet(false)
           return
         }
-        setCoachPose(coachPose('miss'))
-        say('coach', coachLine('miss'), 1800)
+        const why = e.type === 'miss' && e.reason === 'tilt' ? 'tilt' : 'miss'
+        setCoachPose(coachPose(why))
+        say('coach', coachLine(why), 1800)
         say('player', playerLine('miss'), 1400)
         if (s.misses >= tuning.maxMisses) {
           lockUntil.current = Infinity
@@ -576,6 +628,8 @@ export function Training(props: Props) {
       if (s.done === target) {
         setCoachPose(coachPose('oneMore'))
         say('coach', coachLine('oneMore'), 2400)
+      } else if (!clean) {
+        if (quality === 'assisted') setCoachPose('clap')
       } else if (!saidLowTank.current && left < 1.6) {
         saidLowTank.current = true
         setCoachPose(coachPose('lowTank'))
@@ -904,8 +958,10 @@ export function Training(props: Props) {
           </div>
           <LiftPad
             tuning={tuning}
+            kg={cur.weight}
             resetKey={padKey}
             startTank={startTank}
+            chalk={cursor.set === 0 && startTank === 1}
             lockRef={lockUntil}
             stateRef={liftState}
             repRef={repRef}
@@ -979,6 +1035,7 @@ export function Training(props: Props) {
           </div>
           {results.bonus > 0 && <p className="banner">🏅 {t('routineDone', { coins: results.bonus })}</p>}
           {results.rirSets > 0 && <p className="banner">🎯 {t('rirSets', { n: results.rirSets })}</p>}
+          {results.assisted > 0 && <p className="banner">🤝 {t('assistedReps', { n: results.assisted })}</p>}
           <div className="result-row">
             <div>
               <small>{t('xpGained')}</small>

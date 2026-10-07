@@ -69,8 +69,10 @@ interface GameData {
   voice: boolean
   /** The athlete reads their own lines out loud too. */
   playerVoice: boolean
-  /** First drag-the-bar tutorial already shown. */
+  /** First two-thumb lifting tutorial already shown. */
   seenLiftTutorial: boolean
+  /** Phone vibration while lifting. */
+  haptics: boolean
   /** 0..1 background music and effects volume. */
   musicVol: number
   sfxVol: number
@@ -127,7 +129,7 @@ interface GameActions {
   setVoice(on: boolean): void
   setPlayerVoice(on: boolean): void
   markLiftTutorial(): void
-  setAudio(p: Partial<Pick<GameData, 'musicVol' | 'sfxVol' | 'office'>>): void
+  setAudio(p: Partial<Pick<GameData, 'musicVol' | 'sfxVol' | 'office' | 'haptics'>>): void
   /** Records a lesson quiz; returns the lucas earned (only the first time / first perfect). */
   completeLesson(id: string, score: number): number
   /** Real gym check-in for today; returns lucas earned or null if already done. */
@@ -193,6 +195,7 @@ const initialData = (): GameData => ({
   voice: true,
   playerVoice: true,
   seenLiftTutorial: false,
+  haptics: true,
   musicVol: 0.6,
   sfxVol: 0.9,
   office: false,
@@ -527,13 +530,15 @@ export const useGame = create<GameStore>()(
     }),
     {
       name: 'gym-coach-save',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => gameStorage),
       skipHydration: true,
       migrate: (persisted, version) => {
-        const data = version < 2 ? migrateV1((persisted ?? {}) as Record<string, unknown>) : (persisted as GameData)
+        let data = version < 2 ? migrateV1((persisted ?? {}) as Record<string, unknown>) : (persisted as GameData)
         // v3: voices on and Spanish unless the player had picked English.
-        if (version < 3) return { ...data, voice: true, playerVoice: true, lang: data.lang === 'en' ? 'en' : 'es' }
+        if (version < 3) data = { ...data, voice: true, playerVoice: true, lang: data.lang === 'en' ? 'en' : 'es' }
+        // v4: lifting became two-thumb, everyone sees the new tutorial.
+        if (version < 4) data = { ...data, seenLiftTutorial: false, haptics: true }
         return data
       },
       partialize: (s) => {

@@ -32,7 +32,10 @@ export type Pose =
   | 'facepalm'
   | 'flex'
   | 'rest'
-export type RepQuality = 'perfect' | 'good' | 'miss'
+  /** Spotter: hands under the bar, following it up. */
+  | 'spot'
+/** `dirty`: the weight was let fall on the way down; `assisted`: the Profe spotted the rep. */
+export type RepQuality = 'perfect' | 'good' | 'dirty' | 'assisted' | 'miss'
 
 export type Build = 'male' | 'female'
 export type HairStyle = 'short' | 'long' | 'ponytail' | 'buzz' | 'bun' | 'bald'

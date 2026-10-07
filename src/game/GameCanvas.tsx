@@ -3,7 +3,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Doll, type RepSignal } from './Doll'
 import { GymWorld } from './GymWorld'
-import { RIGS } from './rigs'
+import { NpcAthletes } from './NpcAthletes'
+import { RIGS, rigToWorld } from './rigs'
 import type { RigFocus } from './equipment/RigSet'
 import { COACH_LOOK } from '../data/characters'
 import type { CharacterLook, MuscleGroup, Pose, StationId } from '../core/types'
@@ -33,7 +34,14 @@ export type CoachDemoState = {
 
 type Spot = { pos: [number, number, number]; face: number | 'spin' }
 
-function spots(scene: SceneId, focus: RigFocus | null, lifting: boolean, demo: CoachDemoState | null, coachLifting: boolean): Record<ActorId, Spot> {
+function spots(
+  scene: SceneId,
+  focus: RigFocus | null,
+  lifting: boolean,
+  demo: CoachDemoState | null,
+  coachLifting: boolean,
+  spotting = false,
+): Record<ActorId, Spot> {
   if (scene === 'select') {
     return {
       player: { pos: [0, 0, 2.6], face: 'spin' },
@@ -53,8 +61,7 @@ function spots(scene: SceneId, focus: RigFocus | null, lifting: boolean, demo: C
   if (scene === 'training' && focus) {
     const r = RIGS[focus.rig]
     const [x, z] = r.pos
-    const cx = x + r.coach[0]
-    const cz = z + r.coach[1]
+    const [cx, cz] = lifting && spotting ? rigToWorld(r, r.spot) : [x + r.coach[0], z + r.coach[1]]
     return {
       player: lifting
         ? { pos: [x, 0, z], face: r.face }
@@ -84,7 +91,7 @@ function Actors({ scene, playerLook, playerPose, coachPose, station, focus, repR
   coachStyle.current = demo?.station ?? null
 
   useFrame((state, delta) => {
-    const target = spots(scene, focus, playerPose === 'lift', demo, coachPose === 'lift')
+    const target = spots(scene, focus, playerPose === 'lift', demo, coachPose === 'lift', coachPose === 'spot')
     const speed = 3.6 * delta
 
     const drive = (
@@ -214,6 +221,9 @@ export function GameCanvas(props: Props) {
         lifting={props.demo ? props.coachPose === 'lift' : props.playerPose === 'lift'}
       />
       <Actors {...props} />
+      {props.scene !== 'select' && (
+        <NpcAthletes playerLook={props.playerLook} busyRig={props.scene === 'training' || props.demo ? (props.focus?.rig ?? null) : null} />
+      )}
     </Canvas>
   )
 }

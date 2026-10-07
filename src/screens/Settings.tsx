@@ -20,6 +20,7 @@ export function Settings({ onClose, onReset }: { onClose: () => void; onReset: (
   const musicVol = useGame((s) => s.musicVol)
   const sfxVol = useGame((s) => s.sfxVol)
   const office = useGame((s) => s.office)
+  const haptics = useGame((s) => s.haptics)
   const setAudio = useGame((s) => s.setAudio)
 
   const slider = (value: number, key: 'musicVol' | 'sfxVol') => (
@@ -99,6 +100,13 @@ export function Settings({ onClose, onReset }: { onClose: () => void; onReset: (
         {toggle(playerVoice, (v) => {
           setPlayerVoice(v)
           if (v) window.setTimeout(() => speak(t('playerVoiceTest'), 'player'), 50)
+        })}
+      </div>
+      <div className="setting">
+        <span>📳 {t('haptics')}</span>
+        {toggle(haptics, (v) => {
+          setAudio({ haptics: v })
+          if (v) navigator.vibrate?.([20, 40, 20])
         })}
       </div>
       <div className="setting">

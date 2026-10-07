@@ -40,6 +40,12 @@ export interface RepSignal {
   live?: number
   /** Bar shake while grinding or tired, 0..1. */
   strain?: number
+  /** Left side minus right side of the bar (two-thumb lifting); the weak arm drops. */
+  tilt?: number
+  /** `performance.now()` of the last chalk-up (ritual before the set). */
+  chalk?: number
+  /** Session fatigue 0..1: red face, sweat, heavy breathing. */
+  fatigue?: number
 }
 
 type Props = {
@@ -55,6 +61,15 @@ type Props = {
 }
 
 const REP_SECONDS = 0.6
+const FLUSH = new THREE.Color('#d8423a')
+/** Sweat drop start points on the forehead (x, y in head space). */
+const DROPS: [number, number][] = [
+  [-0.055, 0.165],
+  [0.03, 0.175],
+  [-0.015, 0.17],
+  [0.06, 0.16],
+  [0.0, 0.18],
+]
 const damp = THREE.MathUtils.damp
 const X_AXIS = new THREE.Vector3(1, 0, 0)
 const vA = new THREE.Vector3()
@@ -103,7 +118,14 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
   const towel = useRef<THREE.Group>(null)
   const bottle = useRef<THREE.Group>(null)
   const t = useRef(0)
-  const fx = useRef({ pump: 0, sweat: 0, lastRep: -1, prevPose: 'idle' as Pose, chalk: 0 })
+  const fx = useRef({ pump: 0, sweat: 0, lastRep: -1, chalk: 0, lastChalk: 0, flush: 0 })
+  const drops = useRef<(THREE.Mesh | null)[]>([])
+  const skinColor = useMemo(() => new THREE.Color(look.skin), [look.skin])
+  const [faceMat] = useState(() => new THREE.MeshStandardMaterial({ color: look.skin, roughness: 0.55 }))
+  const [cheekMat] = useState(() => new THREE.MeshStandardMaterial({ color: look.skin, roughness: 0.5 }))
+  const [sweatMat] = useState(
+    () => new THREE.MeshStandardMaterial({ color: '#e4f3ff', roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.85 }),
+  )
 
   const d = useMemo(() => bodyDims(look), [look])
   const body = useMemo(() => buildBody(look), [look])
@@ -164,9 +186,29 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
     f.sweat = Math.max(0, f.sweat - dt * 0.003)
     if (skin.morphTargetInfluences) skin.morphTargetInfluences[0] = f.pump
     mat.roughness = 0.66 - 0.36 * f.sweat
-    if (lifting && f.prevPose !== 'lift') f.chalk = 1
-    f.prevPose = pose
+    if (rep?.chalk && rep.chalk !== f.lastChalk) {
+      f.lastChalk = rep.chalk
+      f.chalk = 1
+    }
     f.chalk = Math.max(0, f.chalk - dt * 1.1)
+
+    // Effort shows on the face: flushed cheeks while grinding and as the session wears on, sweat running down.
+    const fatigue = rep?.fatigue ?? 0
+    const strainNow = lifting ? (rep?.strain ?? 0) : 0
+    f.flush = damp(f.flush, Math.min(1, fatigue * 0.7 + strainNow * 0.6 + f.pump * 0.15), 3, dt)
+    faceMat.color.copy(skinColor).lerp(FLUSH, f.flush * 0.22)
+    cheekMat.color.copy(skinColor).lerp(FLUSH, f.flush * 0.6)
+    const sweatLvl = Math.min(1, f.sweat * 1.6 + fatigue * 0.7)
+    faceMat.roughness = 0.55 - 0.3 * sweatLvl
+    drops.current.forEach((m, i) => {
+      if (!m) return
+      m.visible = sweatLvl > (i + 1) / (DROPS.length + 1)
+      if (!m.visible) return
+      const cyc = (time * 0.32 + i * 0.37) % 1
+      const [x, y] = DROPS[i]
+      m.position.set(x, y - cyc * 0.085, 0.1 - Math.abs(x) * 0.3 + cyc * 0.004)
+      m.scale.set(1, 1 + cyc * 0.6, 1)
+    })
     chalkMat.opacity = f.chalk * 0.75
     for (const g of chalkFx.current) {
       if (!g) continue
@@ -229,8 +271,25 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
     if (drivesRig) rigLive.incline = rep?.exerciseId === 'incline' ? 0.61 : 0
 
     if (lifting) {
-      applyMotion(motion, phase, j, !!rep?.bad)
-      j.sway = shake
+      const tilt = rep?.live !== undefined ? (rep.tilt ?? 0) : 0
+      if (Math.abs(tilt) > 0.005) {
+        // Each arm follows its own thumb: the weak side lags and the bar in the hands tilts with it.
+        const jr = { ...j }
+        applyMotion(motion, Math.min(1, Math.max(0, phase - tilt / 2)), jr, !!rep?.bad)
+        applyMotion(motion, Math.min(1, Math.max(0, phase + tilt / 2)), j, !!rep?.bad)
+        j.rArmX = jr.rArmX
+        j.rArmZ = jr.rArmZ
+        j.rForeX = jr.rForeX
+        j.rForeZ = jr.rForeZ
+      } else applyMotion(motion, phase, j, !!rep?.bad)
+      j.sway = shake + tilt * 0.25
+      const tremor = strainNow * 0.035
+      if (tremor > 0.004) {
+        j.lArmX += Math.sin(time * 63) * tremor
+        j.rArmX += Math.sin(time * 71 + 1.3) * tremor
+        j.lForeX += Math.sin(time * 57 + 0.7) * tremor
+        j.rForeX += Math.sin(time * 66 + 2.1) * tremor
+      }
       if (drivesRig) {
         if (motion === 'pulldown') rigLive.pulldown = phase
         if (motion === 'legPress') rigLive.legpress = 0.8 - 0.38 * phase
@@ -299,10 +358,12 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
       j.lean = 0.08
     } else if (pose === 'rest') {
       // Catch your breath between sets: heavy breathing, a sip from the bottle every few seconds.
+      // A harder session means faster, deeper breaths.
       const cyc = time % 5
       const sip = cyc < 1.8 ? Math.sin((Math.PI * cyc) / 1.8) : 0
-      j.hipY = Math.sin(time * 4) * 0.012
-      j.lean = 0.05 + Math.sin(time * 4) * 0.02
+      const br = 3.2 + fatigue * 4
+      j.hipY = Math.sin(time * br) * 0.012 * (1 + fatigue)
+      j.lean = 0.05 + fatigue * 0.08 + Math.sin(time * br) * 0.02 * (1 + fatigue)
       j.lArmX = 0.05 - sip * 1.45
       j.lArmZ = abd(-1, 0.25 - sip * 0.2)
       j.lForeX = -0.3 - sip * 1.85
@@ -310,6 +371,18 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
       j.headY = sip ? 0 : Math.sin(time * 0.7) * 0.2
       j.rArmX = 0.1
       j.rForeX = -0.25
+    } else if (pose === 'spot') {
+      // Spotter: leaning over the bar, hands under it, lifting with the athlete.
+      const push = 0.5 + 0.5 * Math.sin(time * 3.2)
+      j.lean = 0.32
+      j.lArmX = j.rArmX = -1.25 - push * 0.35
+      j.lArmZ = abd(-1, -0.12)
+      j.rArmZ = abd(1, -0.12)
+      j.lForeX = j.rForeX = -0.55 + push * 0.3
+      j.headX = 0.35
+      j.headY = 0
+      j.lThighX = j.rThighX = -0.15
+      j.lCalfX = j.rCalfX = 0.25
     } else if (pose === 'flex') {
       const pulse = Math.sin(time * 4) * 0.06
       j.lArmZ = abd(-1, 1.45)
@@ -627,7 +700,19 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
 
           <bone ref={head} position={[0, HEAD_Y, 0]}>
             <group scale={1.08}>
-              <Head look={look} tail={tail} />
+              <Head look={look} tail={tail} faceMat={faceMat} cheekMat={cheekMat} />
+              {DROPS.map((_, i) => (
+                <mesh
+                  key={i}
+                  ref={(m) => {
+                    drops.current[i] = m
+                  }}
+                  material={sweatMat}
+                  visible={false}
+                >
+                  <sphereGeometry args={[0.0065, 6, 6]} />
+                </mesh>
+              ))}
             </group>
           </bone>
         </bone>
@@ -636,38 +721,43 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
   )
 })
 
-function Head({ look, tail }: { look: CharacterLook; tail: React.RefObject<THREE.Group | null> }) {
+function Head({
+  look,
+  tail,
+  faceMat,
+  cheekMat,
+}: {
+  look: CharacterLook
+  tail: React.RefObject<THREE.Group | null>
+  /** Skin of the face; reddens with effort. */
+  faceMat: THREE.Material
+  cheekMat: THREE.Material
+}) {
   const f = look.build === 'female'
-  const skinM = <meshStandardMaterial color={look.skin} roughness={0.55} />
   const hairM = <meshStandardMaterial color={look.hair} roughness={0.85} />
   return (
     <>
-      <mesh position={[0, 0.12, 0]} scale={[0.9, 1.08, 0.98]} castShadow>
+      <mesh position={[0, 0.12, 0]} scale={[0.9, 1.08, 0.98]} material={faceMat} castShadow>
         <sphereGeometry args={[0.105, 20, 16]} />
-        {skinM}
       </mesh>
-      <mesh position={[0, 0.058, 0.018]} scale={[f ? 0.86 : 1, 0.75, 0.95]}>
+      <mesh position={[0, 0.058, 0.018]} scale={[f ? 0.86 : 1, 0.75, 0.95]} material={faceMat}>
         <sphereGeometry args={[0.08, 16, 12]} />
-        {skinM}
       </mesh>
       {/* cheekbones */}
       {[-1, 1].map((s) => (
-        <mesh key={`c${s}`} position={[s * 0.05, 0.095, 0.06]} scale={[1, 0.7, 0.8]}>
+        <mesh key={`c${s}`} position={[s * 0.05, 0.095, 0.06]} scale={[1, 0.7, 0.8]} material={cheekMat}>
           <sphereGeometry args={[0.03, 10, 8]} />
-          {skinM}
         </mesh>
       ))}
       {/* ears */}
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[s * 0.094, 0.11, -0.005]} scale={[0.45, 1, 0.75]}>
+        <mesh key={s} position={[s * 0.094, 0.11, -0.005]} scale={[0.45, 1, 0.75]} material={faceMat}>
           <sphereGeometry args={[0.026, 8, 8]} />
-          {skinM}
         </mesh>
       ))}
       {/* nose */}
-      <mesh position={[0, 0.098, 0.101]} rotation={[0.25, 0, 0]}>
+      <mesh position={[0, 0.098, 0.101]} rotation={[0.25, 0, 0]} material={faceMat}>
         <boxGeometry args={[0.018, 0.04, 0.022]} />
-        {skinM}
       </mesh>
       {/* eyes */}
       {[-1, 1].map((s) => (

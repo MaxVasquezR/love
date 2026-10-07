@@ -12,20 +12,22 @@ export interface RigDef {
   wait: [number, number]
   /** Coach spot, as a world offset from `pos`. */
   coach: [number, number]
+  /** Where the Profe stands to spot a rep, in rig-local space (athlete faces +Z, lying athletes have the head at -Z). */
+  spot: [number, number]
   /** Camera framing: height of the look-at point and distance multiplier. */
   lookY: number
   dist: number
 }
 
 export const RIGS: Record<RigId, RigDef> = {
-  bench: { id: 'bench', name: 'Banco plano', pos: [-6.3, -0.6], face: Math.PI / 2, wait: [0.3, 0.95], coach: [-1.05, 0.05], lookY: 0.85, dist: 1 },
-  adjustable: { id: 'adjustable', name: 'Banco ajustable', pos: [-2.0, -2.3], face: Math.PI / 2, wait: [0.3, 0.95], coach: [-1.0, 0.3], lookY: 0.85, dist: 1 },
-  dumbbells: { id: 'dumbbells', name: 'Mancuernas', pos: [-4.4, -2.75], face: 0, wait: [0, 0.2], coach: [-1.1, 0.5], lookY: 1.0, dist: 1 },
-  platform: { id: 'platform', name: 'Plataforma', pos: [0.1, -2.2], face: 0, wait: [0, 0.75], coach: [-1.2, 0.5], lookY: 0.95, dist: 1 },
-  cable: { id: 'cable', name: 'Polea alta', pos: [2.5, -3.2], face: 0, wait: [0, 0.85], coach: [-1.1, 0.6], lookY: 1.15, dist: 1.05 },
-  rack: { id: 'rack', name: 'Rack de potencia', pos: [4.6, -2.6], face: 0, wait: [0, 1.0], coach: [-1.3, 0.6], lookY: 1.1, dist: 1.05 },
-  legpress: { id: 'legpress', name: 'Prensa 45°', pos: [6.3, 0.9], face: -Math.PI / 2, wait: [0.1, 1.0], coach: [-0.9, -0.95], lookY: 0.8, dist: 1.05 },
-  tower: { id: 'tower', name: 'Barras y paralelas', pos: [6.8, -3.1], face: -0.5, wait: [-0.5, 0.9], coach: [0.95, 0.5], lookY: 1.45, dist: 1.15 },
+  bench: { id: 'bench', name: 'Banco plano', pos: [-6.3, -0.6], face: Math.PI / 2, wait: [0.3, 0.95], coach: [-1.05, 0.05], spot: [0, -1.0], lookY: 0.85, dist: 1 },
+  adjustable: { id: 'adjustable', name: 'Banco ajustable', pos: [-2.0, -2.3], face: Math.PI / 2, wait: [0.3, 0.95], coach: [-1.0, 0.3], spot: [0, -0.95], lookY: 0.85, dist: 1 },
+  dumbbells: { id: 'dumbbells', name: 'Mancuernas', pos: [-4.4, -2.75], face: 0, wait: [0, 0.2], coach: [-1.1, 0.5], spot: [0, -0.6], lookY: 1.0, dist: 1 },
+  platform: { id: 'platform', name: 'Plataforma', pos: [0.1, -2.2], face: 0, wait: [0, 0.75], coach: [-1.2, 0.5], spot: [0, -0.65], lookY: 0.95, dist: 1 },
+  cable: { id: 'cable', name: 'Polea alta', pos: [2.5, -3.2], face: 0, wait: [0, 0.85], coach: [-1.1, 0.6], spot: [0, -0.7], lookY: 1.15, dist: 1.05 },
+  rack: { id: 'rack', name: 'Rack de potencia', pos: [4.6, -2.6], face: 0, wait: [0, 1.0], coach: [-1.3, 0.6], spot: [0, -0.65], lookY: 1.1, dist: 1.05 },
+  legpress: { id: 'legpress', name: 'Prensa 45°', pos: [6.3, 0.9], face: -Math.PI / 2, wait: [0.1, 1.0], coach: [-0.9, -0.95], spot: [0.75, 0.3], lookY: 0.8, dist: 1.05 },
+  tower: { id: 'tower', name: 'Barras y paralelas', pos: [6.8, -3.1], face: -0.5, wait: [-0.5, 0.9], coach: [0.95, 0.5], spot: [0, -0.6], lookY: 1.45, dist: 1.15 },
 }
 
 export { STATION_RIG } from '../data/exercises'

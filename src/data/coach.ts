@@ -38,6 +38,11 @@ export type CoachMoment =
   | 'oneMore'
   | 'rirBonus'
   | 'greedy'
+  | 'chalk'
+  | 'grip'
+  | 'tilt'
+  | 'slam'
+  | 'spot'
 
 export type Mood = 'hype' | 'exigente' | 'decepcionado' | 'orgulloso' | 'calmado'
 
@@ -85,6 +90,11 @@ const MOMENT_MOOD: Record<CoachMoment, Mood> = {
   oneMore: 'exigente',
   rirBonus: 'orgulloso',
   greedy: 'decepcionado',
+  chalk: 'calmado',
+  grip: 'hype',
+  tilt: 'exigente',
+  slam: 'exigente',
+  spot: 'hype',
 }
 
 const COACH: Record<CoachMoment, string[]> = {
@@ -130,6 +140,27 @@ const COACH: Record<CoachMoment, string[]> = {
     '¡Te pasaste de ambicioso! La serie cuenta, pero sin bonus.',
     'Eso fue el fallo. Para la próxima, para con 1 o 2 en el tanque.',
   ],
+  chalk: [
+    'Magnesio en las manos. Ahora sí, agarre firme.',
+    'Un poquito de magnesio, como en el gym de verdad.',
+    'Manos secas, agarre de acero.',
+  ],
+  grip: [
+    'Agarre parejo, las dos manos. ¡Saca la barra!',
+    'Respira, aprieta todo el cuerpo… ¡ahora!',
+    'Las dos manos firmes. ¡Vamos!',
+  ],
+  tilt: [
+    '¡Nivela esa barra! Empuja parejo con las dos manos.',
+    '¡Se te va de lado! Iguala los brazos.',
+    '¡Parejo, parejo! Un lado se está quedando.',
+  ],
+  slam: [
+    '¡No la dejes caer! Controla la bajada.',
+    '¡Frena! La bajada también es parte de la rep.',
+    'Eso no es bajar, eso es soltar. ¡Controla!',
+  ],
+  spot: ['¡Te tengo! ¡Empuja, empuja!', '¡Sube conmigo! ¡Tú puedes!', '¡Dos dedos nada más! ¡Es toda tuya!'],
   welcome: [
     '¡Llegaste, {name}! Hoy se chambea a full.',
     '¡Habla, {name}! El fierro te estaba esperando.',
@@ -146,8 +177,10 @@ const COACH: Record<CoachMoment, string[]> = {
     'Hoy toca recuperar: duerme bien, come proteína y mañana revientas.',
   ],
   tip: [
-    'Arrastra la barra hacia arriba y bájala lento: así sale la rep perfecta.',
-    'Más peso da más XP, pero sube más lento y el punto duro pesa más. Tú decides.',
+    'Un pulgar por mano: sube parejo y frena la bajada, así sale la rep perfecta.',
+    'Más peso da más XP, pero sube más lento, se te va de lado y al bajar empuja más. Tú decides.',
+    'Si la barra se inclina, afloja el lado que va adelantado. Parejo, como en el banco de verdad.',
+    'En el punto duro toca rápido alternando izquierda y derecha, como cuando peleas una rep.',
     'Mira tu tanque: si paras con 1 o 2 reps de sobra, te llevas el bonus RIR.',
     'Las misiones del día pagan bien. Revísalas, no seas flojo.',
     'El equipo de la tienda sube tus stats para siempre.',
