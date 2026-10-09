@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useGame, boostActive, currentStats, type SessionOutcome } from '../core/store'
+import { useGame, bestLevel, boostActive, currentStats, type SessionOutcome } from '../core/store'
 import { useTalk } from '../core/talk'
-import { clampKg, liftTuning, repXp, sessionCoins, suggestedKgFor } from '../core/progression'
+import {
+  clampKg,
+  liftAssist,
+  liftStage,
+  liftTuning,
+  repXp,
+  sessionCoins,
+  suggestedKgFor,
+  xpForLevel,
+  type LiftStage,
+} from '../core/progression'
 import { ROUTINE_ENERGY, todayKey } from '../core/economy'
 import type { Exercise, Goal, Pose, RepQuality, RigId, StationId } from '../core/types'
 import { GOALS, GOAL_ORDER, STATIONS, STATION_ORDER, exerciseById, exerciseName, exercisesFor } from '../data/exercises'
@@ -120,6 +130,7 @@ interface Results {
   kg: number
   rirSets: number
   assisted: number
+  stageUp: LiftStage | null
 }
 
 /** Combo worth showing off from the results screen. */
@@ -212,10 +223,14 @@ export function Training(props: Props) {
   const liftEx = cur?.exercise ?? exercise
   const liftKg = cur ? cur.weight : weight
   const liftGoal = GOALS[cur?.goal ?? goal]
-  const tuning = useMemo(
-    () => (liftEx ? liftTuning(liftEx, stats, liftKg, liftGoal.reps, liftGoal.load) : null),
-    [liftEx, stats, liftKg, liftGoal],
-  )
+  const best = bestLevel(game)
+  const sessions = game.lifetime.sessions
+  const tuning = useMemo(() => {
+    if (!liftEx) return null
+    const { difficulty } = liftTuning(liftEx, stats, liftKg, liftGoal.reps, liftGoal.load)
+    const assist = liftAssist(best, sessions, difficulty, liftGoal.load)
+    return liftTuning(liftEx, stats, liftKg, liftGoal.reps, liftGoal.load, assist)
+  }, [liftEx, stats, liftKg, liftGoal, best, sessions])
   const daily = useMemo(() => dailyRoutine(todayKey(), level), [level])
   const dailyDone = game.routineDaily === todayKey()
 
@@ -357,7 +372,11 @@ export function Training(props: Props) {
       const s = useGame.getState()
       const tt = totals.current
       const boosted = boostActive(s.boosts.xp2Until)
-      const xp = Math.round(tt.xp * XP_SCALE * (failed ? 0.6 : 1) * (boosted ? 2 : 1))
+      const earned = Math.round(tt.xp * XP_SCALE * (failed ? 0.6 : 1) * (boosted ? 2 : 1))
+      // First session always ends in a level up: the hook.
+      const prog = s.progress[charId]
+      const xp = s.lifetime.sessions === 0 ? Math.max(earned, xpForLevel(prog.level) - prog.xp) : earned
+      const stageBefore = liftStage(bestLevel(s), s.lifetime.sessions)
       const coins = sessionCoins(xp, tt.perfect)
       let bonus = 0
       if (p.routine && !failed) {
@@ -406,6 +425,10 @@ export function Training(props: Props) {
         combo: tt.maxCombo,
         newPr,
       })
+      const after = useGame.getState()
+      const stageAfter = liftStage(bestLevel(after), after.lifetime.sessions)
+      const stageUp = stageAfter !== stageBefore ? stageAfter : null
+      if (stageUp) window.setTimeout(() => say('coach', t(stageUp === 'mid' ? 'stageMidSay' : 'stageProSay'), 5000), 1800)
       if (outcome.levelsGained > 0) track('level_up', { level: outcome.newLevel })
       if (outcome.challengeWon) track('challenge_won', { exercise: mainId, kg: mainKg, rev: !!outcome.challenge?.rev })
       restBreathing(Math.min(1, 0.4 + fatigue.current * 0.6), 8)
@@ -422,6 +445,7 @@ export function Training(props: Props) {
         kg: mainKg,
         rirSets: tt.rirSets,
         assisted: tt.assisted,
+        stageUp,
       })
       setStep('results')
       sfx.coin()
@@ -1036,6 +1060,9 @@ export function Training(props: Props) {
           {results.bonus > 0 && <p className="banner">🏅 {t('routineDone', { coins: results.bonus })}</p>}
           {results.rirSets > 0 && <p className="banner">🎯 {t('rirSets', { n: results.rirSets })}</p>}
           {results.assisted > 0 && <p className="banner">🤝 {t('assistedReps', { n: results.assisted })}</p>}
+          {results.stageUp && (
+            <p className="banner banner--stage">🔓 {t(results.stageUp === 'mid' ? 'stageMid' : 'stagePro')}</p>
+          )}
           <div className="result-row">
             <div>
               <small>{t('xpGained')}</small>

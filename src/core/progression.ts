@@ -83,21 +83,59 @@ export interface LiftTuning {
   /** Strength difference between arms that has to be corrected (share of speed). */
   wobble: number
   maxMisses: number
+  /** 0..1 hidden help: high for new players and light weights. */
+  assist: number
+  /** How fast the bar levels itself (per second); 0 = the player has to level it. */
+  sync: number
+  tiltWarn: number
+  tiltFail: number
+  /** Descent speed that counts as letting the weight fall. */
+  slamSpeed: number
+  /** Letting go at the top just lowers the bar instead of dumping it. */
+  gentle: boolean
+  /** Profe spots per set. */
+  assists: number
+}
+
+export type LiftStage = 'novice' | 'mid' | 'pro'
+
+/** Which rules are on: novices only feel the bar, mids level it, pros also brake the descent. */
+export function liftStage(level: number, sessions: number): LiftStage {
+  if (sessions < 3 || level <= 3) return 'novice'
+  return level <= 9 ? 'mid' : 'pro'
+}
+
+/** Hidden help 0..1 from the player's experience; going over the suggested weight takes it away. */
+export function liftAssist(level: number, sessions: number, difficulty: number, load = 0.75): number {
+  const stage = liftStage(level, sessions)
+  const base =
+    stage === 'novice' ? 0.9 : stage === 'mid' ? clamp(0.62 - (level - 4) * 0.04, 0.4, 0.62) : clamp(0.35 - (level - 10) * 0.05, 0, 0.35)
+  const a = clamp(base + (load - difficulty) * 0.6, 0, 1)
+  return stage === 'novice' ? Math.max(0.7, a) : Math.min(0.69, a)
 }
 
 /** `reps` / `load` come from the training goal: at the suggested weight the set ends about 2 reps short of failure. */
-export function liftTuning(ex: Exercise, stats: Stats, weight: number, reps = 10, load = 0.75): LiftTuning {
+export function liftTuning(ex: Exercise, stats: Stats, weight: number, reps = 10, load = 0.75, assist = 0): LiftTuning {
   const difficulty = Math.max(0.2, weight / capacityKg(ex, stats))
+  const a = clamp(assist, 0, 1)
+  const tempoMin = Math.max(0.5, 0.9 - stats.tec * 0.01)
   return {
     difficulty,
-    liftSpeed: clamp(1.9 - difficulty, 0.45, 1.6),
-    repsInTank: clamp(reps + 3.2 + stats.end * 0.06 - (difficulty - load) * reps * 1.6, 1.2, 45),
-    stallBase: clamp((difficulty - 0.75) * 2.2, 0, 0.9),
-    tempoMin: Math.max(0.5, 0.9 - stats.tec * 0.01),
-    tempoMax: 2.6 + stats.tec * 0.04,
-    eccCreep: clamp(0.25 + difficulty * 0.45, 0.3, 0.95),
-    wobble: clamp(0.05 + (difficulty - 0.5) * 0.3, 0.03, 0.35),
+    liftSpeed: clamp(1.9 - difficulty, 0.45, 1.6) * (1 + a * 0.25),
+    repsInTank: clamp(reps + 3.2 + stats.end * 0.06 - (difficulty - load) * reps * 1.6, 1.2, 45) + a * 4,
+    stallBase: clamp((difficulty - 0.75) * 2.2, 0, 0.9) * (1 - a * 0.7),
+    tempoMin: tempoMin * (1 - a * 0.5),
+    tempoMax: 2.6 + stats.tec * 0.04 + a,
+    eccCreep: clamp(0.25 + difficulty * 0.45, 0.3, 0.95) * (1 - a * 0.2),
+    wobble: clamp(0.05 + (difficulty - 0.5) * 0.3, 0.03, 0.35) * (1 - a * 0.7),
     maxMisses: 2,
+    assist: a,
+    sync: a * 6,
+    tiltWarn: a >= 0.7 ? 9 : 0.1 + a * 0.1,
+    tiltFail: a >= 0.7 ? 9 : 0.22 + a * 0.3,
+    slamSpeed: a >= 0.4 ? 9 : 2 + a * 2,
+    gentle: a >= 0.4,
+    assists: a >= 0.7 ? 99 : a >= 0.3 ? 2 : 1,
   }
 }
 

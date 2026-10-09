@@ -68,13 +68,8 @@ export type LiftEvent =
 export const SIDES: Side[] = ['L', 'R']
 export const STALL_FROM = 0.5
 export const STALL_TO = 0.72
-/** Tilt that triggers the "level it" warning, and the one that dumps the bar. */
-export const TILT_WARN = 0.1
-export const TILT_FAIL = 0.22
 /** Max tilt during the rep that still allows a perfect rep. */
 export const PERFECT_TILT = 0.08
-/** Descent speed (range per second) that counts as letting the weight fall. */
-export const SLAM_SPEED = 2
 const TOP = 0.97
 const BOTTOM = 0.03
 const RELEASE_GRACE = 0.22
@@ -93,7 +88,7 @@ const LOCKOUT_SHARE = 0.95
 const ECC_DRAIN = 0.08
 const ECC_PUSH_DRAIN = 0.35
 
-export function freshLift(): LiftState {
+export function freshLift(assists = 1): LiftState {
   return {
     pos: 0,
     posL: 0,
@@ -113,7 +108,7 @@ export function freshLift(): LiftState {
     tiltWarned: false,
     slammed: false,
     assisted: false,
-    assistsLeft: 1,
+    assistsLeft: assists,
     dropSpeed: 0,
     missReason: 'drop',
   }
@@ -143,6 +138,15 @@ function setSide(s: LiftState, k: Side, v: number) {
 function settle(s: LiftState) {
   s.pos = (s.posL + s.posR) / 2
   s.tilt = s.posL - s.posR
+}
+/** New players get a bar that levels itself, so two thumbs feel real without being a test. */
+function autoLevel(s: LiftState, t: LiftTuning, dt: number) {
+  if (t.sync > 0) {
+    const d = (s.posL - s.posR) * Math.min(1, t.sync * dt) * 0.5
+    s.posL = clamp(s.posL - d, 0, 1)
+    s.posR = clamp(s.posR + d, 0, 1)
+  }
+  settle(s)
 }
 
 export function stepLift(prev: LiftState, input: LiftInput, dt: number, t: LiftTuning): { state: LiftState; events: LiftEvent[] } {
@@ -211,16 +215,16 @@ export function stepLift(prev: LiftState, input: LiftInput, dt: number, t: LiftT
         taps += inp.taps
         setSide(s, k, p)
       }
-      settle(s)
+      autoLevel(s, t, dt)
       s.stallTime = inBand ? Math.max(0, s.stallTime + dt - taps * 0.12) : 0
       const tilt = Math.abs(s.tilt)
       s.maxTilt = Math.max(s.maxTilt, tilt)
-      if (tilt > TILT_WARN && !s.tiltWarned) {
+      if (tilt > t.tiltWarn && !s.tiltWarned) {
         s.tiltWarned = true
         events.push({ type: 'tilt' })
       }
       s.strain = Math.min(1, (inBand ? stall : 0) * 0.8 + (1 - fresh) * 0.6 + Math.max(0, t.difficulty - 0.6) * 0.3 + tilt * 1.5)
-      if (tilt > TILT_FAIL) {
+      if (tilt > t.tiltFail) {
         drop('tilt')
         break
       }
@@ -268,7 +272,7 @@ export function stepLift(prev: LiftState, input: LiftInput, dt: number, t: LiftT
         s.slammed = true
         events.push({ type: 'slam' })
       }
-      if (!s.slammed && SIDES.some((k) => !grip[k] && getSide(s, k) > SLAM_SAFE)) slam()
+      if (!t.gentle && !s.slammed && SIDES.some((k) => !grip[k] && getSide(s, k) > SLAM_SAFE)) slam()
       let push = 0
       if (!s.slammed) {
         const creep = t.eccCreep * (1 + (1 - fresh) * 0.5)
@@ -285,9 +289,9 @@ export function stepLift(prev: LiftState, input: LiftInput, dt: number, t: LiftT
           setSide(s, k, p - down)
         }
         s.dropSpeed += (fastest - s.dropSpeed) * Math.min(1, dt * 12)
-        s.tank = Math.max(0, s.tank - cost * (ECC_DRAIN + push * ECC_PUSH_DRAIN * t.difficulty) * dt)
-        settle(s)
-        if (s.pos > SLAM_SAFE && (s.dropSpeed > SLAM_SPEED || Math.abs(s.tilt) > TILT_FAIL)) slam()
+        s.tank = Math.max(0, s.tank - cost * (ECC_DRAIN + push * ECC_PUSH_DRAIN * t.difficulty * (1 - t.assist)) * dt)
+        autoLevel(s, t, dt)
+        if (s.pos > SLAM_SAFE && (s.dropSpeed > t.slamSpeed || Math.abs(s.tilt) > t.tiltFail)) slam()
       }
       if (s.slammed) {
         s.posL = Math.max(0, s.posL - FALL_SPEED * dt)

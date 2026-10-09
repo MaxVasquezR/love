@@ -1539,6 +1539,13 @@ p {
   text-align: center;
 }
 
+.banner--stage {
+  background: linear-gradient(90deg, rgba(255, 201, 74, 0.3), rgba(255, 120, 60, 0.3));
+  color: #fff;
+  font-size: 0.8rem;
+  animation: pop 0.5s ease-out;
+}
+
 .boost-chip {
   display: inline-block;
   margin-left: 0.3rem;

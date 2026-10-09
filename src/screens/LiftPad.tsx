@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   SIDES,
-  SLAM_SPEED,
   STALL_FROM,
   STALL_TO,
-  TILT_WARN,
   freshLift,
   stepLift,
   type LiftEvent,
@@ -103,15 +101,16 @@ export function LiftPad({ tuning, kg, resetKey, startTank = 1, chalk, lockRef, s
     tutorialRef.current = tutorial
   }, [onEvent, tutorial])
 
+  const assists = tuning.assists
   useEffect(() => {
-    stateRef.current = { ...freshLift(), tank: startTank }
+    stateRef.current = { ...freshLift(assists), tank: startTank }
     input.current = idleInput()
     sides.current.clear()
     kb.current.down = { L: false, R: false }
     const first: Ritual = chalk ? 'chalk' : 'grip'
     ritualRef.current = first
     setRitual(first)
-  }, [resetKey, startTank, chalk, stateRef])
+  }, [resetKey, startTank, chalk, stateRef, assists])
 
   const goRitual = (r: Ritual) => {
     ritualRef.current = r
@@ -234,9 +233,9 @@ export function LiftPad({ tuning, kg, resetKey, startTank = 1, chalk, lockRef, s
       const next =
         state.phase === 'assist'
           ? L.spot
-          : state.phase === 'lower' && (state.slammed || state.dropSpeed > SLAM_SPEED * 0.6)
+          : state.phase === 'lower' && !tuning.gentle && (state.slammed || state.dropSpeed > tuning.slamSpeed * 0.6)
             ? L.brake
-            : moving && Math.abs(state.tilt) > TILT_WARN * 0.8
+            : moving && Math.abs(state.tilt) > tuning.tiltWarn * 0.8
               ? L.level
               : ''
       if (warnTag.current && next !== warnText) {
