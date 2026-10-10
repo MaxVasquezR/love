@@ -1,6 +1,9 @@
 import type { StationId } from '../core/types'
 import { CALF_L, HIP_Y, THIGH_L } from './body/buildBody'
 
+/** Mop swing speed (rad/s), shared by the mopping pose and the mop prop so hands and handle move together. */
+export const MOP_SWING = 2.2
+
 /** What the athlete holds during the lift. */
 export type Prop = 'none' | 'handsBar' | 'latBar' | 'backBar' | 'frontBar' | 'hipBar' | 'db2' | 'goblet'
 

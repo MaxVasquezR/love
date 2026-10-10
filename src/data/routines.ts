@@ -92,7 +92,7 @@ export const ROUTINES: RoutineDef[] = [
   },
   {
     id: 'glute',
-    name: 'Circuito Glúteo Kiara',
+    name: 'Circuito Glúteo Juana',
     kind: 'circuito',
     blurb: 'El favorito de la zona de glúteos.',
     unlockLevel: 12,

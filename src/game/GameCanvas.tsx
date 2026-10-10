@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { Doll, type RepSignal } from './Doll'
 import { GymWorld } from './GymWorld'
 import { NpcAthletes } from './NpcAthletes'
+import { Janitor } from './Janitor'
 import { RIGS, rigToWorld } from './rigs'
 import type { RigFocus } from './equipment/RigSet'
 import { COACH_LOOK } from '../data/characters'
@@ -222,7 +223,10 @@ export function GameCanvas(props: Props) {
       />
       <Actors {...props} />
       {props.scene !== 'select' && (
-        <NpcAthletes playerLook={props.playerLook} busyRig={props.scene === 'training' || props.demo ? (props.focus?.rig ?? null) : null} />
+        <>
+          <NpcAthletes playerLook={props.playerLook} busyRig={props.scene === 'training' || props.demo ? (props.focus?.rig ?? null) : null} />
+          <Janitor />
+        </>
       )}
     </Canvas>
   )

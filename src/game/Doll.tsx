@@ -20,7 +20,7 @@ import {
   torsoAt,
   veinTexture,
 } from './body/buildBody'
-import { applyMotion, legIK, motionFor, type Joints } from './motions'
+import { MOP_SWING, applyMotion, legIK, motionFor, type Joints } from './motions'
 import { Barbell, Dumbbell, LatBar } from './equipment/Barbell'
 import { rigLive } from './rigs'
 
@@ -383,6 +383,24 @@ export const Doll = forwardRef<THREE.Group, Props>(function Doll(
       j.headY = 0
       j.lThighX = j.rThighX = -0.15
       j.lCalfX = j.rCalfX = 0.25
+    } else if (pose === 'mop') {
+      // Mopping: both hands on the handle, swinging it side to side while shuffling forward.
+      const s = Math.sin(time * MOP_SWING)
+      const step = Math.sin(time * 3)
+      j.lean = 0.2
+      j.headX = 0.3
+      j.headY = s * 0.15
+      j.sway = s * 0.05
+      j.lArmX = -0.75
+      j.rArmX = -0.55
+      j.lArmZ = abd(-1, -0.12 - s * 0.22)
+      j.rArmZ = abd(1, -0.12 + s * 0.22)
+      j.lForeX = -0.75
+      j.rForeX = -0.5
+      j.lThighX = -step * 0.2
+      j.rThighX = step * 0.2
+      j.lCalfX = 0.1 + Math.max(0, j.lThighX) * 0.8
+      j.rCalfX = 0.1 + Math.max(0, j.rThighX) * 0.8
     } else if (pose === 'flex') {
       const pulse = Math.sin(time * 4) * 0.06
       j.lArmZ = abd(-1, 1.45)

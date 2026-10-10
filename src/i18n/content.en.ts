@@ -7,6 +7,8 @@ export const CHARACTERS_EN: Record<CharacterId, { title: string; bio: string }> 
   bruno: { title: 'The Iron', bio: 'From Callao. A powerlifter at heart: if it is heavy, he lifts it.' },
   kiara: { title: 'The Unstoppable', bio: 'From San Juan de Lurigancho. Queen of leg day, she never gets tired.' },
   lucho: { title: 'The Veteran', bio: 'From Breña. 55 years old, 35 of them lifting. Flawless technique and free advice.' },
+  elva: { title: 'The Warrior', bio: 'From Comas. Mom of three who never skips a workout: strength and stamina to spare.' },
+  emma: { title: 'The Dynamo', bio: 'From Chorrillos. Surfer on weekends, pure energy in the gym.' },
 }
 
 export const OUTFITS_EN: Record<OutfitId, { name: string; blurb: string }> = {
@@ -55,7 +57,7 @@ export const ROUTINES_EN: Record<string, { name: string; blurb: string }> = {
   'pull-day': { name: 'Pull Day', blurb: 'V-shaped back and steel biceps.' },
   hiit: { name: 'HIIT Circuit', blurb: 'No breaks: 3 exercises back to back with minimal rest.' },
   'leg-day': { name: 'Leg Day', blurb: 'Nobody skips leg day at Bonnetty.' },
-  glute: { name: "Kiara's Glute Circuit", blurb: 'The glute zone favorite.' },
+  glute: { name: "Juana's Glute Circuit", blurb: 'The glute zone favorite.' },
   daily: { name: 'Bonnetty routine of the day', blurb: 'Changes every day. Double bonus the first time.' },
 }
 

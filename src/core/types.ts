@@ -12,7 +12,7 @@ export type MuscleGroup =
   | 'quads'
   | 'hamstrings'
   | 'calves'
-export type CharacterId = 'max' | 'ana' | 'bruno' | 'kiara' | 'lucho'
+export type CharacterId = 'max' | 'ana' | 'bruno' | 'kiara' | 'lucho' | 'elva' | 'emma'
 export type OutfitId = 'base' | 'bonnetty' | 'stringer' | 'neon' | 'hoodie' | 'oro'
 export type EquipmentId = 'chalk' | 'belt' | 'knees' | 'straps' | 'shoes'
 export type StatKey = 'str' | 'end' | 'tec'
@@ -34,6 +34,8 @@ export type Pose =
   | 'rest'
   /** Spotter: hands under the bar, following it up. */
   | 'spot'
+  /** Cleaning lady mopping the floor. */
+  | 'mop'
 /** `dirty`: the weight was let fall on the way down; `assisted`: the Profe spotted the rep. */
 export type RepQuality = 'perfect' | 'good' | 'dirty' | 'assisted' | 'miss'
 

@@ -173,7 +173,7 @@ const emptyLifetime = (): Lifetime => ({
 
 const initialData = (): GameData => ({
   selected: null,
-  unlocked: ['max', 'ana'],
+  unlocked: [...CHARACTER_ORDER],
   progress: startProgress(),
   coins: 100,
   energy: MAX_ENERGY,
@@ -530,7 +530,7 @@ export const useGame = create<GameStore>()(
     }),
     {
       name: 'gym-coach-save',
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => gameStorage),
       skipHydration: true,
       migrate: (persisted, version) => {
@@ -539,6 +539,16 @@ export const useGame = create<GameStore>()(
         if (version < 3) data = { ...data, voice: true, playerVoice: true, lang: data.lang === 'en' ? 'en' : 'es' }
         // v4: lifting became two-thumb, everyone sees the new tutorial.
         if (version < 4) data = { ...data, seenLiftTutorial: false, haptics: true }
+        // v5: the whole roster is free to pick, including the new athletes.
+        if (version < 5) {
+          const fresh = startProgress()
+          data = {
+            ...data,
+            unlocked: [...CHARACTER_ORDER],
+            progress: { ...fresh, ...data.progress },
+            outfits: Array.from(new Set([...data.outfits, ...CHARACTER_ORDER.map((c) => outfitKey(c, 'base'))])),
+          }
+        }
         return data
       },
       partialize: (s) => {
